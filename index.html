@@ -34,82 +34,83 @@
   --ps-bg:#e8e6de;--ps-tx:#666460;--ps-bd:#c0beb4;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6;transition:background .3s,color .3s}
-.header{position:sticky;top:0;z-index:100;background:var(--bg2);border-bottom:1px solid var(--border2);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:58px}
-.hl{display:flex;align-items:center;gap:14px}
-.logo{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;background:var(--accent);color:#fff;padding:3px 10px;border-radius:4px;letter-spacing:.06em}
-.htitle{font-size:14px;font-weight:500;color:var(--text)}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:16px;line-height:1.65;transition:background .3s,color .3s}
+.header{position:sticky;top:0;z-index:100;background:var(--bg2);border-bottom:1px solid var(--border2);padding:0 36px;display:flex;align-items:center;justify-content:space-between;height:64px}
+.hl{display:flex;align-items:center;gap:16px}
+.logo{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;background:var(--accent);color:#fff;padding:4px 12px;border-radius:4px;letter-spacing:.06em}
+.htitle{font-size:16px;font-weight:500;color:var(--text)}
 .hr{display:flex;align-items:center;gap:10px}
-.sync-status{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);background:var(--bg3);padding:4px 10px;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;gap:6px}
-.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);transition:background .3s;flex-shrink:0}
+.sync-status{font-family:'DM Mono',monospace;font-size:13px;color:var(--text3);background:var(--bg3);padding:5px 12px;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;gap:6px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:background .3s;flex-shrink:0}
 .sync-dot.ok{background:var(--green)}.sync-dot.err{background:var(--red)}.sync-dot.loading{background:var(--amber);animation:pulse 1s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.date-badge{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:6px;border:1px solid var(--border)}
-.btn{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);cursor:pointer;padding:6px 14px;border-radius:8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;font-weight:500;transition:all .2s}
+.date-badge{font-family:'DM Mono',monospace;font-size:13px;color:var(--text2);background:var(--bg3);padding:5px 12px;border-radius:6px;border:1px solid var(--border)}
+.btn{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);cursor:pointer;padding:7px 16px;border-radius:8px;font-size:13px;font-family:'Noto Sans KR',sans-serif;font-weight:500;transition:all .2s}
 .btn:hover{background:var(--bg4);color:var(--text)}
-.btn svg{width:14px;height:14px;flex-shrink:0}
-.wrap{max-width:1300px;margin:0 auto;padding:32px 32px 80px}
-.sec{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.btn svg{width:15px;height:15px;flex-shrink:0}
+.wrap{max-width:1300px;margin:0 auto;padding:36px 36px 80px}
+.sec{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px}
 .sec::after{content:'';flex:1;height:1px;background:var(--border)}
-.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;transition:border-color .2s;margin-bottom:20px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:28px;transition:border-color .2s;margin-bottom:22px}
 .card:hover{border-color:var(--border2)}
-.card-title{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
-.card-title-note{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace}
-.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
-.mc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;position:relative;overflow:hidden;transition:transform .2s,border-color .2s}
+.card-title{font-size:14px;font-weight:500;color:var(--text2);margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
+.card-title-note{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.mc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;position:relative;overflow:hidden;transition:transform .2s,border-color .2s}
 .mc:hover{transform:translateY(-2px);border-color:var(--border2)}
-.mc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.mc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
 .mc.cb::before{background:var(--accent)}.mc.cg::before{background:var(--green)}
 .mc.ca::before{background:var(--amber)}.mc.cr::before{background:var(--red)}
-.mey{font-size:10px;font-weight:500;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
-.mval{font-size:26px;font-weight:600;color:var(--text);letter-spacing:-.02em;line-height:1;margin-bottom:6px;font-family:'DM Mono',monospace}
-.msub{font-size:11px;color:var(--text2)}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.inv-sec-lbl{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.06em;margin-bottom:10px;text-transform:uppercase}
-.inv-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
-.inv-name{font-size:12px;font-weight:500;color:var(--text2);width:36px;flex-shrink:0}
-.inv-track{flex:1;height:30px;background:var(--bg3);border-radius:6px;overflow:hidden}
-.inv-bar{height:100%;border-radius:6px;display:flex;align-items:center;padding:0 10px;font-size:11px;font-weight:600;font-family:'DM Mono',monospace;white-space:nowrap;transition:width .8s cubic-bezier(.4,0,.2,1)}
-.inv-count{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--text2);width:38px;text-align:right;flex-shrink:0}
+.mey{font-size:12px;font-weight:500;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
+.mval{font-size:30px;font-weight:600;color:var(--text);letter-spacing:-.02em;line-height:1;margin-bottom:8px;font-family:'DM Mono',monospace}
+.msub{font-size:13px;color:var(--text2)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.inv-sec-lbl{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.06em;margin-bottom:12px;text-transform:uppercase}
+.inv-row{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.inv-name{font-size:14px;font-weight:500;color:var(--text2);width:42px;flex-shrink:0}
+.inv-track{flex:1;height:34px;background:var(--bg3);border-radius:6px;overflow:hidden}
+.inv-bar{height:100%;border-radius:6px;display:flex;align-items:center;padding:0 12px;font-size:13px;font-weight:600;font-family:'DM Mono',monospace;white-space:nowrap;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.inv-count{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--text2);width:44px;text-align:right;flex-shrink:0}
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
-th{font-size:10px;font-weight:500;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;padding:8px 14px;text-align:left;border-bottom:1px solid var(--border)}
-td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);vertical-align:middle}
+th{font-size:12px;font-weight:500;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:13px 16px;border-bottom:1px solid var(--border);font-size:15px;color:var(--text);vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:var(--bg3)}
-.badge{display:inline-block;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:500;font-family:'DM Mono',monospace}
+.badge{display:inline-block;padding:4px 12px;border-radius:5px;font-size:13px;font-weight:500;font-family:'DM Mono',monospace}
 .b-a{background:var(--pa-bg);color:var(--pa-tx)}.b-b{background:var(--pb-bg);color:var(--pb-tx)}
 .b-c{background:var(--pc-bg);color:var(--pc-tx)}.b-d{background:var(--pd-bg);color:var(--pd-tx)}
 .b-e{background:var(--pe-bg);color:var(--pe-tx)}.b-s{background:var(--ps-bg);color:var(--ps-tx)}
-.price-mono{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--text)}
-.cal-month-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px}
+.price-mono{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--text)}
+.cal-month-name{font-size:15px;font-weight:600;color:var(--text);margin-bottom:12px}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
-.cal-dow{font-size:10px;text-align:center;color:var(--text3);font-weight:500;padding:4px 0;font-family:'DM Mono',monospace}
-.cal-cell{min-height:46px;border-radius:6px;padding:4px 5px;border:1px solid transparent}
+.cal-dow{font-size:12px;text-align:center;color:var(--text3);font-weight:500;padding:5px 0;font-family:'DM Mono',monospace}
+.cal-cell{min-height:52px;border-radius:6px;padding:5px 6px;border:1px solid transparent}
 .cal-cell.no-ph{background:var(--bg3);border-color:var(--border)}
 .cal-cell.empty{background:transparent;border-color:transparent}
-.cal-num{font-size:11px;font-weight:500;font-family:'DM Mono',monospace}
-.cal-lbl{font-size:8.5px;font-weight:600;margin-top:2px;line-height:1.2}
+.cal-num{font-size:13px;font-weight:500;font-family:'DM Mono',monospace}
+.cal-lbl{font-size:10px;font-weight:600;margin-top:2px;line-height:1.2}
 .ca{background:var(--pa-bg)}.ca .cal-num{color:var(--pa-tx)}.ca .cal-lbl{color:var(--pa-tx);opacity:.85}
 .cb{background:var(--pb-bg)}.cb .cal-num{color:var(--pb-tx)}.cb .cal-lbl{color:var(--pb-tx);opacity:.85}
 .cc{background:var(--pc-bg)}.cc .cal-num{color:var(--pc-tx)}.cc .cal-lbl{color:var(--pc-tx);opacity:.85}
 .cd{background:var(--pd-bg)}.cd .cal-num{color:var(--pd-tx)}.cd .cal-lbl{color:var(--pd-tx);opacity:.85}
 .ce{background:var(--pe-bg)}.ce .cal-num{color:var(--pe-tx)}.ce .cal-lbl{color:var(--pe-tx);opacity:.85}
-.cs{background:var(--ps-bg);border:1px dashed var(--ps-bd) !important}.cs .cal-num{color:var(--ps-tx)}.cs .cal-lbl{color:var(--ps-tx)}
-.legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
-.lchip{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);padding:4px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border)}
-.ldot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.cs{background:#d4f700;border:1px solid #b8d800 !important}.cs .cal-num{color:#1a1a00;font-weight:700}.cs .cal-lbl{color:#1a1a00;font-weight:800}
+[data-theme="light"] .cs{background:#c8eb00;border:1px solid #a0bc00 !important}.cs .cal-num,[data-theme="light"] .cs .cal-lbl{color:#1a1a00}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.lchip{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text2);padding:5px 12px;border-radius:6px;background:var(--bg3);border:1px solid var(--border)}
+.ldot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 #loadingOverlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}
 #loadingOverlay.hide{opacity:0;pointer-events:none}
-.spinner{width:32px;height:32px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+.spinner{width:34px;height:34px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.loading-txt{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)}
+.loading-txt{font-family:'DM Mono',monospace;font-size:14px;color:var(--text2)}
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 .anim{opacity:0;animation:fadeUp .5s ease forwards}
 .d1{animation-delay:.06s}.d2{animation-delay:.13s}.d3{animation-delay:.20s}
 .d4{animation-delay:.27s}.d5{animation-delay:.34s}.d6{animation-delay:.41s}
-.err-banner{background:var(--pd-bg);border:1px solid var(--pd-tx);color:var(--pd-tx);border-radius:var(--radius-sm);padding:14px 18px;font-size:12px;margin-bottom:20px;display:none;line-height:1.6}
+.err-banner{background:var(--pd-bg);border:1px solid var(--pd-tx);color:var(--pd-tx);border-radius:var(--radius-sm);padding:16px 20px;font-size:14px;margin-bottom:22px;display:none;line-height:1.6}
 .err-banner.show{display:block}
 </style>
 </head>
@@ -183,7 +184,7 @@ tbody tr:hover td{background:var(--bg3)}
       <div style="position:relative;width:100%;height:230px"><canvas id="domesticChart" role="img" aria-label="국내재고 소진 소요일"></canvas></div>
     </div>
     <div class="card" style="margin-bottom:0">
-      <div class="card-title">중국 재고 소진 소요일 (블랙 기준)<span class="card-title-note">시트: 소진예측</span></div>
+      <div class="card-title">중국 재고 소진 소요일 (블랙·그린 비교)<span class="card-title-note">시트: 소진예측</span></div>
       <div style="position:relative;width:100%;height:230px"><canvas id="chinaChart" role="img" aria-label="중국재고 소진 소요일"></canvas></div>
     </div>
   </div>
@@ -197,7 +198,7 @@ tbody tr:hover td{background:var(--bg3)}
       <div class="lchip"><span class="ldot" style="background:#e0b86a"></span>2차 사전예약 ₩49,500</div>
       <div class="lchip"><span class="ldot" style="background:#e07070"></span>3차 사전예약 ₩49,500</div>
       <div class="lchip"><span class="ldot" style="background:#9080e0"></span>그린 단독 ₩39,600</div>
-      <div class="lchip"><span class="ldot" style="background:#68686a"></span>일괄 출고일</div>
+      <div class="lchip"><span class="ldot" style="background:#d4f700;border:1px solid #b8d800"></span>일괄 출고일</div>
     </div>
     <div id="calContainer" class="g3"></div>
   </div>
@@ -293,9 +294,9 @@ function renderMetrics() {
 }
 
 const invColors = {
-  실버:{bg:'#8fa8c8',tx:'#0d1e30'},
-  블랙:{bg:'#606060',tx:'#f0f0ec'},
-  그린:{bg:'#3a8050',tx:'#d0f0dc'},
+  실버:{bg:'#c0c4cc',tx:'#1a1c20'},   /* 밝은 실버 */
+  블랙:{bg:'#2c2c2e',tx:'#e8e8e4'},   /* 진한 블랙 */
+  그린:{bg:'#3a8a50',tx:'#d0f4dc'},   /* 초록 */
 };
 function renderInventory() {
   const inv = allData.inventory;
@@ -331,7 +332,7 @@ function dlPlugin(unit) {
         meta.data.forEach((bar,j)=>{
           const val=ds.data[j]; if(!val) return;
           const pt=bar.getCenterPoint?bar.getCenterPoint():{x:bar.x,y:bar.y};
-          ctx.save(); ctx.font='600 12px Noto Sans KR,sans-serif';
+          ctx.save(); ctx.font='600 13px Noto Sans KR,sans-serif';
           ctx.fillStyle=lc; ctx.textAlign='center'; ctx.textBaseline='bottom';
           ctx.fillText(val+unit, pt.x, pt.y-5); ctx.restore();
         });
@@ -342,42 +343,156 @@ function dlPlugin(unit) {
 
 function renderPriceChart() {
   const rows = allData.price; const c = getCC();
-  const labels = rows.map(r=>'₩'+Number(r['가격']).toLocaleString()+'\n('+r['할인율']+')');
-  if(charts.price) charts.price.destroy();
-  charts.price = new Chart(document.getElementById('priceChart'),{
+
+  // 할인율 포맷: 0.5 → 50%,  50 → 50%,  "50%" → 50%
+  function fmtDisc(v) {
+    if (!v && v !== 0) return '';
+    const n = typeof v === 'string' ? parseFloat(v.replace('%','')) : v * 1;
+    const pct = n <= 1 ? Math.round(n * 100) : Math.round(n);
+    return pct + '%';
+  }
+
+  // ₩49,500 문자열 포함 숫자 변환
+  function toN(v) {
+    if (!v && v !== 0) return 0;
+    if (typeof v === 'number') return v;
+    return Number(String(v).replace(/[₩,%\s]/g, '')) || 0;
+  }
+
+  // 컬럼명 유연하게 찾기 (공백/언더바 무시)
+  function findK(sample, ...cands) {
+    const keys = Object.keys(sample);
+    return keys.find(k => cands.some(c => k.replace(/_/g,' ').trim().toLowerCase() === c.replace(/_/g,' ').trim().toLowerCase())) || null;
+  }
+
+  let labels, upper, lower;
+  if (!rows || rows.length === 0) {
+    labels = ['₩49,500\n(50%)', '₩59,400\n(40%)', '₩59,800\n(39%)', '₩65,000\n(34%)', '₩69,000\n(30%)'];
+    upper  = [15, 10, 10, 6, 3];
+    lower  = [15, 6,  6,  4, 3];
+  } else {
+    const s = rows[0];
+    const kP = findK(s,'가격','할인가','price');
+    const kD = findK(s,'할인율','할인','discount');
+    const kU = findK(s,'일평균 상한','일평균_상한','상한','upper');
+    const kL = findK(s,'일평균 하한','일평균_하한','하한','lower');
+    labels = rows.map(r => {
+      const p = toN(r[kP]);
+      const d = kD ? fmtDisc(r[kD]) : '';
+      return '₩' + p.toLocaleString() + (d ? '\n(' + d + ')' : '');
+    });
+    upper = rows.map(r => toN(r[kU]));
+    lower = rows.map(r => toN(r[kL]));
+  }
+
+  const maxVal = Math.max(...upper, ...lower, 1);
+  if (charts.price) charts.price.destroy();
+  charts.price = new Chart(document.getElementById('priceChart'), {
     type:'bar', plugins:[dlPlugin('개')],
-    data:{labels, datasets:[
-      {label:'상한',data:rows.map(r=>r['일평균_상한']),backgroundColor:'#4f8ef7',borderRadius:4,barPercentage:.45},
-      {label:'하한',data:rows.map(r=>r['일평균_하한']),backgroundColor:'#e07a3a',borderRadius:4,barPercentage:.45}
+    data:{ labels, datasets:[
+      {label:'상한', data:upper, backgroundColor:'#4f8ef7', borderRadius:4, barPercentage:.45},
+      {label:'하한', data:lower, backgroundColor:'#e07a3a', borderRadius:4, barPercentage:.45}
     ]},
-    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28}},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y}개/일`}}},
-      scales:{x:{ticks:{color:c.text,font:{size:11},autoSkip:false},grid:{color:c.grid}},y:{ticks:{color:c.text,callback:v=>v+'개'},grid:{color:c.grid},min:0}}}
+    options:{
+      responsive:true, maintainAspectRatio:false, layout:{padding:{top:28}},
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y}개/일`}}},
+      scales:{
+        x:{ticks:{color:c.text,font:{size:13},autoSkip:false}, grid:{color:c.grid}},
+        y:{ticks:{color:c.text,callback:v=>v+'개'}, grid:{color:c.grid}, min:0, max:Math.ceil(maxVal*1.35)}
+      }
+    }
   });
 }
 
 function renderForecastCharts() {
   const rows = allData.forecast; const c = getCC();
-  const dom = rows.filter(r=>r['구분']==='국내');
-  const china = rows.filter(r=>r['구분']==='중국');
-  if(charts.domestic) charts.domestic.destroy();
-  charts.domestic = new Chart(document.getElementById('domesticChart'),{
-    type:'bar', plugins:[dlPlugin('일')],
-    data:{labels:dom.map(r=>'₩'+Number(r['판매가']).toLocaleString()),
-      datasets:[{label:'소요일',data:dom.map(r=>r['블랙_소요일']),backgroundColor:['#e05252','#4f8ef7','#52b87a'],borderRadius:5,barPercentage:.55}]},
-    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28}},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` 약 ${ctx.parsed.y}일 소요`}}},
-      scales:{x:{ticks:{color:c.text,font:{size:11}},grid:{display:false}},y:{ticks:{color:c.text,callback:v=>v+'일'},grid:{color:c.grid}}}}
-  });
-  if(charts.china) charts.china.destroy();
-  charts.china = new Chart(document.getElementById('chinaChart'),{
-    type:'bar', plugins:[dlPlugin('일')],
-    data:{labels:china.map(r=>'₩'+Number(r['판매가']).toLocaleString()),
-      datasets:[{label:'블랙',data:china.map(r=>r['블랙_소요일']),backgroundColor:['#e05252','#e0a83a','#52b87a'],borderRadius:5,barPercentage:.55}]},
-    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28}},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` 블랙 기준 ${ctx.parsed.y}일`}}},
-      scales:{x:{ticks:{color:c.text,font:{size:11}},grid:{display:false}},y:{ticks:{color:c.text,callback:v=>v+'일'},grid:{color:c.grid}}}}
-  });
+
+  function toN(v) {
+    if (!v && v !== 0) return 0;
+    if (typeof v === 'number') return v;
+    return Number(String(v).replace(/[₩,%\s]/g,'')) || 0;
+  }
+  function findK(sample, ...cands) {
+    const keys = Object.keys(sample);
+    return keys.find(k => cands.some(c => k.replace(/_/g,' ').trim().toLowerCase() === c.replace(/_/g,' ').trim().toLowerCase())) || null;
+  }
+
+  const dom   = rows.filter(r => r['구분'] === '국내');
+  const china = rows.filter(r => r['구분'] === '중국');
+
+  /* ── 국내: 가장 오래 걸리는 색상 기준 (실버/블랙/그린 중 최대값) ── */
+  if (charts.domestic) charts.domestic.destroy();
+  if (dom.length > 0) {
+    const s = dom[0];
+    const kSilver = findK(s,'실버_소요일','실버 소요일','실버소요일');
+    const kBlack  = findK(s,'블랙_소요일','블랙 소요일','블랙소요일');
+    const kGreen  = findK(s,'그린_소요일','그린 소요일','그린소요일');
+    const kPrice  = findK(s,'판매가','가격','price');
+
+    const domLabels = dom.map(r => '₩' + toN(r[kPrice]).toLocaleString());
+    // 각 컬러 소요일
+    const dSilver = dom.map(r => toN(r[kSilver]));
+    const dBlack  = dom.map(r => toN(r[kBlack]));
+    const dGreen  = dom.map(r => toN(r[kGreen]));
+    // 가장 늦은 기준: 각 가격별 최대
+    const dMax = dom.map((_,i) => Math.max(dSilver[i]||0, dBlack[i]||0, dGreen[i]||0));
+
+    // 어떤 컬러가 가장 오래 걸리는지 결정 (첫 행 기준)
+    const maxVal0 = Math.max(dSilver[0]||0, dBlack[0]||0, dGreen[0]||0);
+    const slowColor = (dGreen[0]||0) >= maxVal0 ? '그린 기준' : (dSilver[0]||0) >= maxVal0 ? '실버 기준' : '블랙 기준';
+
+    charts.domestic = new Chart(document.getElementById('domesticChart'), {
+      type:'bar', plugins:[dlPlugin('일')],
+      data:{ labels: domLabels, datasets:[
+        { label:'실버', data:dSilver, backgroundColor:'#b0b8c4', borderRadius:4, barPercentage:.28 },
+        { label:'블랙', data:dBlack,  backgroundColor:'#505050', borderRadius:4, barPercentage:.28 },
+        { label:'그린', data:dGreen,  backgroundColor:'#3a8a50', borderRadius:4, barPercentage:.28 },
+      ]},
+      options:{
+        responsive:true, maintainAspectRatio:false, layout:{padding:{top:28}},
+        plugins:{
+          legend:{display:true, position:'top', labels:{color:c.text,font:{size:13},boxWidth:12,boxHeight:12,padding:12}},
+          tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y}일`}}
+        },
+        scales:{
+          x:{ticks:{color:c.text,font:{size:13}}, grid:{display:false}},
+          y:{ticks:{color:c.text,callback:v=>v+'일'}, grid:{color:c.grid}}
+        }
+      }
+    });
+  }
+
+  /* ── 중국: 블랙 + 그린 2개 막대 ── */
+  if (charts.china) charts.china.destroy();
+  if (china.length > 0) {
+    const s = china[0];
+    const kBlack = findK(s,'블랙_소요일','블랙 소요일','블랙소요일');
+    const kGreen = findK(s,'그린_소요일','그린 소요일','그린소요일');
+    const kPrice = findK(s,'판매가','가격','price');
+
+    const chinaLabels = china.map(r => '₩' + toN(r[kPrice]).toLocaleString());
+    const cBlack = china.map(r => toN(r[kBlack]));
+    const cGreen = china.map(r => toN(r[kGreen]));
+
+    charts.china = new Chart(document.getElementById('chinaChart'), {
+      type:'bar', plugins:[dlPlugin('일')],
+      data:{ labels: chinaLabels, datasets:[
+        { label:'블랙', data:cBlack, backgroundColor:'#505050', borderRadius:4, barPercentage:.38 },
+        { label:'그린', data:cGreen, backgroundColor:'#3a8a50', borderRadius:4, barPercentage:.38 },
+      ]},
+      options:{
+        responsive:true, maintainAspectRatio:false, layout:{padding:{top:28}},
+        plugins:{
+          legend:{display:true, position:'top', labels:{color:c.text,font:{size:13},boxWidth:12,boxHeight:12,padding:12}},
+          tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y}일`}}
+        },
+        scales:{
+          x:{ticks:{color:c.text,font:{size:13}}, grid:{display:false}},
+          y:{ticks:{color:c.text,callback:v=>v+'일'}, grid:{color:c.grid}}
+        }
+      }
+    });
+  }
 }
 
 function parseDate(val) {
