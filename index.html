@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DW PLUS — 재고 소진 전략 리포트</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg:#0d0d0f;--bg2:#141416;--bg3:#1c1c20;--bg4:#242428;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
+  --text:#f0efe8;--text2:#9b9a94;--text3:#4c4c48;
+  --accent:#4f8ef7;--green:#52b87a;--red:#e05252;--amber:#e0a83a;--purple:#9f7ff5;
+  --pa-bg:#0f2240;--pa-tx:#7fb3f5;
+  --pb-bg:#0e2a18;--pb-tx:#6dcc90;
+  --pc-bg:#2a1e08;--pc-tx:#e0b86a;
+  --pd-bg:#2a1010;--pd-tx:#e07070;
+  --pe-bg:#1a1040;--pe-tx:#9080e0;
+  --ps-bg:#1e1e22;--ps-tx:#68686a;--ps-bd:#38383c;
+  --radius:12px;--radius-sm:8px;
+}
+[data-theme="light"] {
+  --bg:#f0efe8;--bg2:#ffffff;--bg3:#e8e6dc;--bg4:#dddbd0;
+  --border:rgba(0,0,0,0.07);--border2:rgba(0,0,0,0.14);
+  --text:#18180e;--text2:#5a5a50;--text3:#a8a89a;
+  --accent:#1a5fd4;--green:#1e7a48;--red:#c43030;--amber:#b07010;--purple:#6040c0;
+  --pa-bg:#ddeeff;--pa-tx:#1a4e9e;
+  --pb-bg:#d8f0e4;--pb-tx:#1a5e38;
+  --pc-bg:#fff0d0;--pc-tx:#7a4a00;
+  --pd-bg:#ffe0d8;--pd-tx:#8a2010;
+  --pe-bg:#ece0ff;--pe-tx:#4a2090;
+  --ps-bg:#e8e6de;--ps-tx:#666460;--ps-bd:#c0beb4;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6;transition:background .3s,color .3s}
+.header{position:sticky;top:0;z-index:100;background:var(--bg2);border-bottom:1px solid var(--border2);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:58px}
+.hl{display:flex;align-items:center;gap:14px}
+.logo{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;background:var(--accent);color:#fff;padding:3px 10px;border-radius:4px;letter-spacing:.06em}
+.htitle{font-size:14px;font-weight:500;color:var(--text)}
+.hr{display:flex;align-items:center;gap:10px}
+.sync-status{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);background:var(--bg3);padding:4px 10px;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;gap:6px}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);transition:background .3s;flex-shrink:0}
+.sync-dot.ok{background:var(--green)}.sync-dot.err{background:var(--red)}.sync-dot.loading{background:var(--amber);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.date-badge{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:6px;border:1px solid var(--border)}
+.btn{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);cursor:pointer;padding:6px 14px;border-radius:8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;font-weight:500;transition:all .2s}
+.btn:hover{background:var(--bg4);color:var(--text)}
+.btn svg{width:14px;height:14px;flex-shrink:0}
+.wrap{max-width:1300px;margin:0 auto;padding:32px 32px 80px}
+.sec{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;transition:border-color .2s;margin-bottom:20px}
+.card:hover{border-color:var(--border2)}
+.card-title{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
+.card-title-note{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.mc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;position:relative;overflow:hidden;transition:transform .2s,border-color .2s}
+.mc:hover{transform:translateY(-2px);border-color:var(--border2)}
+.mc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.mc.cb::before{background:var(--accent)}.mc.cg::before{background:var(--green)}
+.mc.ca::before{background:var(--amber)}.mc.cr::before{background:var(--red)}
+.mey{font-size:10px;font-weight:500;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.mval{font-size:26px;font-weight:600;color:var(--text);letter-spacing:-.02em;line-height:1;margin-bottom:6px;font-family:'DM Mono',monospace}
+.msub{font-size:11px;color:var(--text2)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.inv-sec-lbl{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.06em;margin-bottom:10px;text-transform:uppercase}
+.inv-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.inv-name{font-size:12px;font-weight:500;color:var(--text2);width:36px;flex-shrink:0}
+.inv-track{flex:1;height:30px;background:var(--bg3);border-radius:6px;overflow:hidden}
+.inv-bar{height:100%;border-radius:6px;display:flex;align-items:center;padding:0 10px;font-size:11px;font-weight:600;font-family:'DM Mono',monospace;white-space:nowrap;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.inv-count{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--text2);width:38px;text-align:right;flex-shrink:0}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;font-weight:500;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;padding:8px 14px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg3)}
+.badge{display:inline-block;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:500;font-family:'DM Mono',monospace}
+.b-a{background:var(--pa-bg);color:var(--pa-tx)}.b-b{background:var(--pb-bg);color:var(--pb-tx)}
+.b-c{background:var(--pc-bg);color:var(--pc-tx)}.b-d{background:var(--pd-bg);color:var(--pd-tx)}
+.b-e{background:var(--pe-bg);color:var(--pe-tx)}.b-s{background:var(--ps-bg);color:var(--ps-tx)}
+.price-mono{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--text)}
+.cal-month-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-dow{font-size:10px;text-align:center;color:var(--text3);font-weight:500;padding:4px 0;font-family:'DM Mono',monospace}
+.cal-cell{min-height:46px;border-radius:6px;padding:4px 5px;border:1px solid transparent}
+.cal-cell.no-ph{background:var(--bg3);border-color:var(--border)}
+.cal-cell.empty{background:transparent;border-color:transparent}
+.cal-num{font-size:11px;font-weight:500;font-family:'DM Mono',monospace}
+.cal-lbl{font-size:8.5px;font-weight:600;margin-top:2px;line-height:1.2}
+.ca{background:var(--pa-bg)}.ca .cal-num{color:var(--pa-tx)}.ca .cal-lbl{color:var(--pa-tx);opacity:.85}
+.cb{background:var(--pb-bg)}.cb .cal-num{color:var(--pb-tx)}.cb .cal-lbl{color:var(--pb-tx);opacity:.85}
+.cc{background:var(--pc-bg)}.cc .cal-num{color:var(--pc-tx)}.cc .cal-lbl{color:var(--pc-tx);opacity:.85}
+.cd{background:var(--pd-bg)}.cd .cal-num{color:var(--pd-tx)}.cd .cal-lbl{color:var(--pd-tx);opacity:.85}
+.ce{background:var(--pe-bg)}.ce .cal-num{color:var(--pe-tx)}.ce .cal-lbl{color:var(--pe-tx);opacity:.85}
+.cs{background:var(--ps-bg);border:1px dashed var(--ps-bd) !important}.cs .cal-num{color:var(--ps-tx)}.cs .cal-lbl{color:var(--ps-tx)}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.lchip{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);padding:4px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border)}
+.ldot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+#loadingOverlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}
+#loadingOverlay.hide{opacity:0;pointer-events:none}
+.spinner{width:32px;height:32px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.anim{opacity:0;animation:fadeUp .5s ease forwards}
+.d1{animation-delay:.06s}.d2{animation-delay:.13s}.d3{animation-delay:.20s}
+.d4{animation-delay:.27s}.d5{animation-delay:.34s}.d6{animation-delay:.41s}
+.err-banner{background:var(--pd-bg);border:1px solid var(--pd-tx);color:var(--pd-tx);border-radius:var(--radius-sm);padding:14px 18px;font-size:12px;margin-bottom:20px;display:none;line-height:1.6}
+.err-banner.show{display:block}
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-txt">구글 시트에서 데이터 불러오는 중...</div>
+</div>
+
+<header class="header">
+  <div class="hl">
+    <span class="logo">DW PLUS</span>
+    <div class="htitle">재고 소진 전략 리포트</div>
+  </div>
+  <div class="hr">
+    <div class="sync-status">
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncTxt">연결 중...</span>
+    </div>
+    <div class="date-badge" id="baseDateBadge">기준일 —</div>
+    <button class="btn" onclick="window.open('https://docs.google.com/spreadsheets/d/1DyfaXac5t-tDLhiRG_wrbnYOTG9LgghDXf3MkNgdBY0/edit')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      시트 열기
+    </button>
+    <button class="btn" onclick="loadAllData()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      새로고침
+    </button>
+    <button class="btn" onclick="toggleTheme()">
+      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <span id="themeLbl">라이트 모드</span>
+    </button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="errBanner" class="err-banner"></div>
+
+  <div class="sec anim d1">핵심 지표</div>
+  <div class="metrics anim d1">
+    <div class="mc cb"><div class="mey">총 재고</div><div class="mval" id="m-total">—</div><div class="msub" id="m-total-sub">—</div></div>
+    <div class="mc cg"><div class="mey">1단계 판매가</div><div class="mval" id="m-price1">—</div><div class="msub" id="m-price1-sub">—</div></div>
+    <div class="mc ca"><div class="mey">사전예약가</div><div class="mval" id="m-price2">—</div><div class="msub" id="m-price2-sub">—</div></div>
+    <div class="mc cr"><div class="mey">완판 목표</div><div class="mval" id="m-goal">10~12월</div><div class="msub" id="m-goal-sub">그린 ₩39,600 최종 정리</div></div>
+  </div>
+
+  <div class="sec anim d2">가격별 일평균 판매량</div>
+  <div class="card anim d2">
+    <div class="card-title">할인가 → 일평균 판매수량 (과거 실적)<span class="card-title-note">시트: 가격_판매량</span></div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="lchip"><span class="ldot" style="background:#4f8ef7"></span>상한</div>
+      <div class="lchip"><span class="ldot" style="background:#e07a3a"></span>하한</div>
+    </div>
+    <div style="position:relative;width:100%;height:260px"><canvas id="priceChart" role="img" aria-label="가격별 일평균 판매수량"></canvas></div>
+  </div>
+
+  <div class="sec anim d3">재고 현황</div>
+  <div class="card anim d3">
+    <div class="card-title">컬러별 재고 수량<span class="card-title-note">시트: 재고현황</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px">
+      <div><div class="inv-sec-lbl">🇰🇷 국내 재고</div><div id="inv-domestic"></div></div>
+      <div><div class="inv-sec-lbl">🇨🇳 중국 재고</div><div id="inv-china"></div></div>
+    </div>
+  </div>
+
+  <div class="sec anim d3">가격 시나리오별 소진 예측</div>
+  <div class="g2 anim d4" style="margin-bottom:20px">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">국내 재고 소진 소요일<span class="card-title-note">시트: 소진예측</span></div>
+      <div style="position:relative;width:100%;height:230px"><canvas id="domesticChart" role="img" aria-label="국내재고 소진 소요일"></canvas></div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">중국 재고 소진 소요일 (블랙 기준)<span class="card-title-note">시트: 소진예측</span></div>
+      <div style="position:relative;width:100%;height:230px"><canvas id="chinaChart" role="img" aria-label="중국재고 소진 소요일"></canvas></div>
+    </div>
+  </div>
+
+  <div class="sec anim d5">판매 일정 캘린더</div>
+  <div class="card anim d5">
+    <div class="card-title">단계별 일정<span class="card-title-note">시트: 판매전략</span></div>
+    <div class="legend">
+      <div class="lchip"><span class="ldot" style="background:#7fb3f5"></span>국내 일반판매 ₩59,400</div>
+      <div class="lchip"><span class="ldot" style="background:#6dcc90"></span>1차 사전예약 ₩49,500</div>
+      <div class="lchip"><span class="ldot" style="background:#e0b86a"></span>2차 사전예약 ₩49,500</div>
+      <div class="lchip"><span class="ldot" style="background:#e07070"></span>3차 사전예약 ₩49,500</div>
+      <div class="lchip"><span class="ldot" style="background:#9080e0"></span>그린 단독 ₩39,600</div>
+      <div class="lchip"><span class="ldot" style="background:#68686a"></span>일괄 출고일</div>
+    </div>
+    <div id="calContainer" class="g3"></div>
+  </div>
+
+  <div class="sec anim d6">단계별 전략 요약</div>
+  <div class="card anim d6">
+    <div class="card-title">전략 테이블<span class="card-title-note">시트: 판매전략</span></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>단계</th><th>시작일</th><th>종료일</th><th>판매방식</th><th>판매가</th><th>예상소진</th><th>실버</th><th>블랙</th><th>그린</th><th>비고</th>
+        </tr></thead>
+        <tbody id="strategyTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const SHEET_ID = '1DyfaXac5t-tDLhiRG_wrbnYOTG9LgghDXf3MkNgdBY0';
+let charts = {};
+let allData = { price: [], inventory: [], forecast: [], strategy: [] };
+
+async function fetchSheet(name) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(name)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const text = await res.text();
+  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/);
+  if (!match) throw new Error('응답 파싱 실패 — 시트 공유 설정을 확인하세요');
+  const json = JSON.parse(match[1]);
+  if (json.status === 'error') throw new Error(json.errors?.[0]?.detailed_message || json.errors?.[0]?.message || '시트 오류');
+  const cols = json.table.cols.map(c => c.label);
+  return json.table.rows.map(r => Object.fromEntries(cols.map((c, i) => [c, r.c[i]?.v ?? null])));
+}
+
+function setSyncStatus(state, txt) {
+  const dot = document.getElementById('syncDot');
+  dot.className = 'sync-dot ' + state;
+  document.getElementById('syncTxt').textContent = txt;
+}
+
+function showErr(msg) {
+  const el = document.getElementById('errBanner');
+  el.innerHTML = `⚠️ ${msg}<br><small style="opacity:.7">공유 설정: 파일 → 공유 → 링크 복사 → "뷰어" 권한 확인</small>`;
+  el.classList.add('show');
+}
+
+async function loadAllData() {
+  setSyncStatus('loading', '동기화 중...');
+  try {
+    const [price, inventory, forecast, strategy] = await Promise.all([
+      fetchSheet('가격_판매량'), fetchSheet('재고현황'),
+      fetchSheet('소진예측'), fetchSheet('판매전략'),
+    ]);
+    allData = { price, inventory, forecast, strategy };
+    document.getElementById('errBanner').classList.remove('show');
+    renderAll();
+    setSyncStatus('ok', '시트 연결됨');
+  } catch(e) {
+    setSyncStatus('err', '연결 실패');
+    showErr('시트 연결 오류: ' + e.message);
+    console.error(e);
+  } finally {
+    document.getElementById('loadingOverlay').classList.add('hide');
+  }
+}
+
+function renderAll() {
+  renderMetrics(); renderInventory();
+  renderPriceChart(); renderForecastCharts();
+  renderCalendar(); renderStrategyTable();
+}
+
+function renderMetrics() {
+  const inv = allData.inventory;
+  const totalD = inv.reduce((s,r) => s+(r['국내재고']||0), 0);
+  const totalC = inv.reduce((s,r) => s+(r['중국재고']||0), 0);
+  document.getElementById('m-total').textContent = (totalD+totalC).toLocaleString()+'개';
+  document.getElementById('m-total-sub').textContent = `국내 ${totalD} + 중국 ${totalC}`;
+  const dates = inv.map(r=>r['기준일']).filter(Boolean);
+  if (dates.length) document.getElementById('baseDateBadge').textContent = '기준일 '+dates[0];
+  const s1 = allData.strategy.find(r=>String(r['단계'])==='1');
+  if (s1) {
+    document.getElementById('m-price1').textContent = '₩'+Number(s1['판매가']).toLocaleString();
+    document.getElementById('m-price1-sub').textContent = (s1['판매방식']||'') + ' · 일평균 약 7개';
+  }
+  const s2 = allData.strategy.find(r=>String(r['단계'])==='2');
+  if (s2) {
+    document.getElementById('m-price2').textContent = '₩'+Number(s2['판매가']).toLocaleString();
+    document.getElementById('m-price2-sub').textContent = '중국재고 · 일평균 15개 목표';
+  }
+}
+
+const invColors = {
+  실버:{bg:'#8fa8c8',tx:'#0d1e30'},
+  블랙:{bg:'#606060',tx:'#f0f0ec'},
+  그린:{bg:'#3a8050',tx:'#d0f0dc'},
+};
+function renderInventory() {
+  const inv = allData.inventory;
+  const maxD = Math.max(...inv.map(r=>r['국내재고']||0), 1);
+  const maxC = Math.max(...inv.map(r=>r['중국재고']||0), 1);
+  const domEl = document.getElementById('inv-domestic');
+  const chinaEl = document.getElementById('inv-china');
+  domEl.innerHTML = ''; chinaEl.innerHTML = '';
+  inv.forEach(row => {
+    const color = row['컬러'];
+    const dc = invColors[color]||{bg:'#888',tx:'#fff'};
+    const dv = row['국내재고']||0, cv = row['중국재고']||0;
+    const dpct = Math.max(2, Math.round(dv/maxD*90));
+    const cpct = cv>0 ? Math.max(2, Math.round(cv/maxC*90)) : 0;
+    domEl.innerHTML += `<div class="inv-row"><div class="inv-name">${color}</div><div class="inv-track"><div class="inv-bar" style="width:${dpct}%;background:${dc.bg};color:${dc.tx}">${dv>0?dv+'개':''}</div></div><div class="inv-count">${dv}</div></div>`;
+    chinaEl.innerHTML += `<div class="inv-row"><div class="inv-name">${color}</div><div class="inv-track"><div class="inv-bar" style="width:${cpct}%;background:${dc.bg};color:${dc.tx}">${cv>0?cv+'개':''}</div></div><div class="inv-count" style="${cv===0?'color:var(--text3)':''}">${cv}</div></div>`;
+  });
+}
+
+function getCC() {
+  const dark = document.documentElement.getAttribute('data-theme')==='dark';
+  return { text:dark?'#9b9a94':'#5a5a50', grid:dark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)', label:dark?'#f0efe8':'#18180e' };
+}
+
+function dlPlugin(unit) {
+  return {
+    id:'dl_'+unit,
+    afterDatasetsDraw(chart) {
+      const ctx=chart.ctx, lc=getCC().label;
+      chart.data.datasets.forEach((ds,i)=>{
+        const meta=chart.getDatasetMeta(i);
+        if(meta.hidden) return;
+        meta.data.forEach((bar,j)=>{
+          const val=ds.data[j]; if(!val) return;
+          const pt=bar.getCenterPoint?bar.getCenterPoint():{x:bar.x,y:bar.y};
+          ctx.save(); ctx.font='600 12px Noto Sans KR,sans-serif';
+          ctx.fillStyle=lc; ctx.textAlign='center'; ctx.textBaseline='bottom';
+          ctx.fillText(val+unit, pt.x, pt.y-5); ctx.restore();
+        });
+      });
+    }
+  };
+}
+
+function renderPriceChart() {
+  const rows = allData.price; const c = getCC();
+  const labels = rows.map(r=>'₩'+Number(r['가격']).toLocaleString()+'\n('+r['할인율']+')');
+  if(charts.price) charts.price.destroy();
+  charts.price = new Chart(document.getElementById('priceChart'),{
+    type:'bar', plugins:[dlPlugin('개')],
+    data:{labels, datasets:[
+      {label:'상한',data:rows.map(r=>r['일평균_상한']),backgroundColor:'#4f8ef7',borderRadius:4,barPercentage:.45},
+      {label:'하한',data:rows.map(r=>r['일평균_하한']),backgroundColor:'#e07a3a',borderRadius:4,barPercentage:.45}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y}개/일`}}},
+      scales:{x:{ticks:{color:c.text,font:{size:11},autoSkip:false},grid:{color:c.grid}},y:{ticks:{color:c.text,callback:v=>v+'개'},grid:{color:c.grid},min:0}}}
+  });
+}
+
+function renderForecastCharts() {
+  const rows = allData.forecast; const c = getCC();
+  const dom = rows.filter(r=>r['구분']==='국내');
+  const china = rows.filter(r=>r['구분']==='중국');
+  if(charts.domestic) charts.domestic.destroy();
+  charts.domestic = new Chart(document.getElementById('domesticChart'),{
+    type:'bar', plugins:[dlPlugin('일')],
+    data:{labels:dom.map(r=>'₩'+Number(r['판매가']).toLocaleString()),
+      datasets:[{label:'소요일',data:dom.map(r=>r['블랙_소요일']),backgroundColor:['#e05252','#4f8ef7','#52b87a'],borderRadius:5,barPercentage:.55}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` 약 ${ctx.parsed.y}일 소요`}}},
+      scales:{x:{ticks:{color:c.text,font:{size:11}},grid:{display:false}},y:{ticks:{color:c.text,callback:v=>v+'일'},grid:{color:c.grid}}}}
+  });
+  if(charts.china) charts.china.destroy();
+  charts.china = new Chart(document.getElementById('chinaChart'),{
+    type:'bar', plugins:[dlPlugin('일')],
+    data:{labels:china.map(r=>'₩'+Number(r['판매가']).toLocaleString()),
+      datasets:[{label:'블랙',data:china.map(r=>r['블랙_소요일']),backgroundColor:['#e05252','#e0a83a','#52b87a'],borderRadius:5,barPercentage:.55}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` 블랙 기준 ${ctx.parsed.y}일`}}},
+      scales:{x:{ticks:{color:c.text,font:{size:11}},grid:{display:false}},y:{ticks:{color:c.text,callback:v=>v+'일'},grid:{color:c.grid}}}}
+  });
+}
+
+function parseDate(val) {
+  if(!val) return null;
+  if(typeof val==='string'){
+    const m=val.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+    const gm=val.match(/Date\((\d+),(\d+),(\d+)\)/);
+    if(gm) return new Date(+gm[1],+gm[2],+gm[3]);
+  }
+  if(typeof val==='number') return new Date(Math.round((val-25569)*86400000));
+  return null;
+}
+
+const phaseCls=['ca','cb','cc','cd','ce'];
+const badgeCls=['b-a','b-b','b-c','b-d','b-e','b-s'];
+
+function renderCalendar() {
+  const rows = allData.strategy;
+  const phaseMap = [];
+  rows.forEach(row=>{
+    const s=parseDate(row['시작일']), e=parseDate(row['종료일']);
+    if(!s||!e) return;
+    const stepStr=String(row['단계']||'');
+    const isShip=stepStr==='출고';
+    const stepNum=parseInt(stepStr);
+    const cls=isShip?'cs':(!isNaN(stepNum)?phaseCls[(stepNum-1)%phaseCls.length]:'cs');
+    phaseMap.push({start:s,end:e,cls,short:(row['판매방식']||stepStr).slice(0,6),
+      price:row['판매가']&&Number(row['판매가'])>0?'₩'+Number(row['판매가']).toLocaleString():null,isShip});
+  });
+  function getPhase(d){for(const p of phaseMap)if(d>=p.start&&d<=p.end)return p;return null;}
+  const allDates=phaseMap.flatMap(p=>[p.start,p.end]);
+  if(!allDates.length) return;
+  let months=[], cur=new Date(Math.min(...allDates));
+  cur=new Date(cur.getFullYear(),cur.getMonth(),1);
+  const limit=new Date(new Date(Math.max(...allDates)).getFullYear(),new Date(Math.max(...allDates)).getMonth()+1,1);
+  while(cur<limit&&months.length<3){months.push({year:cur.getFullYear(),month:cur.getMonth()});cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}
+  const container=document.getElementById('calContainer');
+  container.innerHTML='';
+  const dows=['일','월','화','수','목','금','토'];
+  months.forEach(({year,month})=>{
+    const wrap=document.createElement('div');
+    const title=document.createElement('div');
+    title.className='cal-month-name';title.textContent=`${year}년 ${month+1}월`;wrap.appendChild(title);
+    const grid=document.createElement('div');grid.className='cal-grid';
+    dows.forEach(d=>{const h=document.createElement('div');h.className='cal-dow';h.textContent=d;grid.appendChild(h);});
+    const firstDay=new Date(year,month,1).getDay();
+    for(let i=0;i<firstDay;i++){const e=document.createElement('div');e.className='cal-cell empty';grid.appendChild(e);}
+    const total=new Date(year,month+1,0).getDate();
+    for(let d=1;d<=total;d++){
+      const date=new Date(year,month,d), ph=getPhase(date);
+      const cell=document.createElement('div');
+      cell.className='cal-cell '+(ph?ph.cls:'no-ph');
+      const num=document.createElement('div');num.className='cal-num';num.textContent=d;cell.appendChild(num);
+      if(ph&&d===ph.start.getDate()&&month===ph.start.getMonth()){
+        const lbl=document.createElement('div');lbl.className='cal-lbl';lbl.textContent=ph.short;cell.appendChild(lbl);
+        if(ph.price&&!ph.isShip){const sub=document.createElement('div');sub.style.cssText='font-size:8px;opacity:.75;font-family:DM Mono,monospace;margin-top:1px';sub.textContent=ph.price;cell.appendChild(sub);}
+      }
+      grid.appendChild(cell);
+    }
+    wrap.appendChild(grid);container.appendChild(wrap);
+  });
+}
+
+function renderStrategyTable() {
+  const tbody=document.getElementById('strategyTbody');
+  tbody.innerHTML='';
+  allData.strategy.forEach(row=>{
+    const stepStr=String(row['단계']||'');
+    const stepNum=parseInt(stepStr);
+    const isShip=stepStr==='출고';
+    const bc=isShip?'b-s':badgeCls[Math.min(stepNum-1,4)]||'b-s';
+    const fmtDate=v=>{if(!v)return'—';const d=parseDate(v);if(!d)return String(v).slice(0,10);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+    const fmtPrice=v=>(v&&Number(v)>0)?'₩'+Number(v).toLocaleString():'—';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><span class="badge ${bc}">${stepStr}</span></td><td>${fmtDate(row['시작일'])}</td><td>${fmtDate(row['종료일'])}</td><td>${row['판매방식']||'—'}</td><td><span class="price-mono">${fmtPrice(row['판매가'])}</span></td><td>${row['예상소진']?row['예상소진']+'개':'—'}</td><td>${row['실버재고']??'—'}</td><td>${row['블랙재고']??'—'}</td><td>${row['그린재고']??'—'}</td><td style="color:var(--text2);font-size:12px">${row['비고']||'—'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function toggleTheme() {
+  const html=document.documentElement;
+  const isDark=html.getAttribute('data-theme')==='dark';
+  html.setAttribute('data-theme',isDark?'light':'dark');
+  document.getElementById('themeLbl').textContent=isDark?'다크 모드':'라이트 모드';
+  if(allData.price.length){renderPriceChart();renderForecastCharts();}
+}
+
+loadAllData();
+</script>
+</body>
+</html>
