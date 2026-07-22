@@ -81,15 +81,20 @@
     </div>
   </header>
 
-  <div class="grid-2" id="row1"></div>
-  <div class="grid-2" id="row2" style="margin-top:14px;"></div>
+  <div class="grid-4" id="row1"></div>
   <div class="section-title">채널별 일평균 매출</div>
   <div class="grid-4" id="row3"></div>
 
   <div class="section-title">최근 3주 요일별 매출 추이 (전체 플랫폼 합산)</div>
   <div class="chart-card">
     <div class="legend" id="weekLegend"></div>
-    <div class="chart-wrap" style="height:320px;"><canvas id="weekChart" role="img" aria-label="최근 3주간 요일별 매출 추이 선 차트">최근 3주 요일별 매출 추이</canvas></div>
+    <div class="chart-wrap" style="height:320px;"><canvas id="weekChart" role="img" aria-label="최근 3주간 요일별 매출 추이 선 차트, 전체 플랫폼 합산">최근 3주 요일별 매출 추이</canvas></div>
+  </div>
+
+  <div class="section-title">최근 3주 요일별 매출 추이 (자사몰+네이버 합산)</div>
+  <div class="chart-card">
+    <div class="legend" id="weekLegend2"></div>
+    <div class="chart-wrap" style="height:320px;"><canvas id="weekChart2" role="img" aria-label="최근 3주간 요일별 매출 추이 선 차트, 자사몰과 네이버 합산">최근 3주 요일별 매출 추이 (자사몰+네이버)</canvas></div>
   </div>
 
   <div class="section-title">제품별 판매수량 — 어제</div>
@@ -308,19 +313,15 @@ function renderRow1(current, prev){
   const selfNaverY = (y.channels[CH.self] || 0) + (y.channels[CH.naver] || 0);
   const selfNaverW = weekAgo ? (weekAgo.channels[CH.self] || 0) + (weekAgo.channels[CH.naver] || 0) : null;
 
-  document.getElementById("row1").innerHTML =
-    card("어제 총 매출금액", fmtManwon(y.total), deltaHtml(y.total, weekAgo ? weekAgo.total : null, "전주대비", fmtManwon)) +
-    card("어제 자사몰+네이버 매출금액", fmtManwon(selfNaverY), deltaHtml(selfNaverY, selfNaverW, "전주대비", fmtManwon));
-}
-
-function renderRow2(current, prev){
   const mtdAvg = avgBy(current.days, d => d.total);
   const prevAvg = avgBy(prev.days, d => d.total);
   const dim = daysInMonth(current.sheetConfig.year, current.sheetConfig.month);
   const projected = mtdAvg * dim;
   const prevTotal = sumBy(prev.days, d => d.total);
 
-  document.getElementById("row2").innerHTML =
+  document.getElementById("row1").innerHTML =
+    card("어제 총 매출금액", fmtManwon(y.total), deltaHtml(y.total, weekAgo ? weekAgo.total : null, "전주대비", fmtManwon)) +
+    card("어제 자사몰+네이버 매출금액", fmtManwon(selfNaverY), deltaHtml(selfNaverY, selfNaverW, "전주대비", fmtManwon)) +
     card("이번달 일평균 총 매출", fmtManwon(mtdAvg), deltaHtml(mtdAvg, prevAvg, "전월대비", fmtManwon)) +
     card("현재 평균 지속시 예상 총 매출액", fmtEokwon(projected), deltaHtml(projected, prevTotal, "전월대비", fmtEokwon));
 }
@@ -339,19 +340,20 @@ function renderRow3(current, prev){
   }).join("");
 }
 
-function renderWeekChart(current, prev){
+function renderWeekChart(current, prev, opts){
+  const { canvasId, legendId, chartKey, valueFn } = opts;
   const allDays = [...prev.days, ...current.days];
   const byWeek = new Map();
   allDays.forEach(d => {
     const sunday = new Date(d.dateObj); sunday.setDate(sunday.getDate() - sunday.getDay());
     const key = sunday.toDateString();
     if (!byWeek.has(key)) byWeek.set(key, { start: sunday, values: Array(7).fill(null) });
-    byWeek.get(key).values[d.dateObj.getDay()] = d.total;
+    byWeek.get(key).values[d.dateObj.getDay()] = valueFn(d);
   });
   const weeks = Array.from(byWeek.values()).sort((a, b) => a.start - b.start).slice(-3);
   const labels = ["일", "월", "화", "수", "목", "금", "토"];
 
-  const legendEl = document.getElementById("weekLegend");
+  const legendEl = document.getElementById(legendId);
   legendEl.innerHTML = weeks.map((w, i) => {
     const end = new Date(w.start); end.setDate(end.getDate() + 6);
     const txt = `${w.start.getMonth()+1}/${w.start.getDate()} ~ ${end.getMonth()+1}/${end.getDate()}`;
@@ -363,8 +365,8 @@ function renderWeekChart(current, prev){
   const text = style.getPropertyValue("--text").trim() || "#e8eaed";
   const grid = style.getPropertyValue("--grid").trim() || "#242832";
 
-  if (window.__weekChart) window.__weekChart.destroy();
-  window.__weekChart = new Chart(document.getElementById("weekChart"), {
+  if (window[chartKey]) window[chartKey].destroy();
+  window[chartKey] = new Chart(document.getElementById(canvasId), {
     type: "line",
     plugins: window.ChartDataLabels ? [window.ChartDataLabels] : [],
     data: {
@@ -499,7 +501,7 @@ async function init(){
   document.getElementById("themeToggle").addEventListener("click", () => {
     const cur = document.documentElement.getAttribute("data-theme");
     applyTheme(cur === "dark" ? "light" : "dark");
-    renderWeekChart(CURRENT_DATA, PREV_DATA);
+    renderAllWeekCharts(CURRENT_DATA, PREV_DATA);
     renderRow7(CURRENT_DATA, PREV_DATA);
   });
 
@@ -511,12 +513,22 @@ async function init(){
 
   renderStatus(current, prev);
   renderRow1(current, prev);
-  renderRow2(current, prev);
   renderRow3(current, prev);
-  renderWeekChart(current, prev);
+  renderAllWeekCharts(current, prev);
   renderRow5(current, prev);
   renderRow6(current, prev);
   renderRow7(current, prev);
+}
+
+function renderAllWeekCharts(current, prev){
+  renderWeekChart(current, prev, {
+    canvasId: "weekChart", legendId: "weekLegend", chartKey: "__weekChart",
+    valueFn: d => d.total
+  });
+  renderWeekChart(current, prev, {
+    canvasId: "weekChart2", legendId: "weekLegend2", chartKey: "__weekChart2",
+    valueFn: d => (d.channels[CH.self] || 0) + (d.channels[CH.naver] || 0)
+  });
 }
 
 init();
