@@ -41,9 +41,11 @@
   .card-value.big{font-size:26px;}
   .delta{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;margin-top:8px;}
   .delta.up{color:var(--good);} .delta.down{color:var(--bad);} .delta.flat{color:var(--sub);font-weight:500;}
-  .delta-bar-track{position:relative;height:6px;background:var(--track);border-radius:3px;margin-top:7px;}
-  .delta-bar-center{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--card-border);}
-  .delta-bar-fill{position:absolute;top:0;bottom:0;border-radius:3px;}
+  .compare-bars{display:flex;align-items:flex-end;gap:8px;height:56px;margin-top:9px;}
+  .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+  .bar-value{font-size:9.5px;color:var(--sub);margin-bottom:3px;white-space:nowrap;}
+  .bar-el{width:56%;border-radius:3px 3px 0 0;min-height:4px;}
+  .bar-label{font-size:9.5px;color:var(--sub);margin-top:4px;}
   .chart-card{background:var(--card);border:1px solid var(--card-border);border-radius:14px;padding:18px;}
   .chart-card .ttl{font-size:13px;font-weight:700;margin-bottom:14px;}
   .chart-wrap{position:relative;width:100%;}
@@ -193,18 +195,22 @@ function fmtEokwon(v){ return (v / 100000000).toFixed(1) + "억원"; }
 function fmtCount(v){ return Math.round(v).toLocaleString("ko-KR") + "개"; }
 function fmtCountAvg(v){ return v.toFixed(1) + "개"; }
 
-function deltaBarHtml(value, opts={}){
-  if (value === null || value === undefined || !isFinite(value)) return "";
-  const cap = opts.pp ? 0.10 : 1.0; /* %p 지표는 ±10%p, 그 외는 ±100%를 꽉 찬 막대 기준으로 사용 */
-  const magnitude = Math.min(Math.abs(value), cap) / cap;
-  const widthPct = (magnitude * 50).toFixed(1);
-  const up = value >= 0;
-  const color = up ? "var(--good)" : "var(--bad)";
-  const posStyle = up ? `left:50%;width:${widthPct}%;` : `right:50%;width:${widthPct}%;`;
-  return `<div class="delta-bar-track"><div class="delta-bar-center"></div><div class="delta-bar-fill" style="${posStyle}background:${color};"></div></div>`;
+function compareBarsHtml(prevVal, curVal, formatter){
+  if (prevVal === null || prevVal === undefined || curVal === null || curVal === undefined) return "";
+  const maxVal = Math.max(Math.abs(prevVal), Math.abs(curVal), 1e-9);
+  const H = 32;
+  const prevH = Math.max(3, Math.round((Math.abs(prevVal) / maxVal) * H));
+  const curH = Math.max(3, Math.round((Math.abs(curVal) / maxVal) * H));
+  const up = curVal >= prevVal;
+  const curColor = up ? "var(--good)" : "var(--bad)";
+  return `<div class="compare-bars">
+    <div class="bar-col"><div class="bar-value">${formatter(prevVal)}</div><div class="bar-el" style="height:${prevH}px;background:var(--sub);"></div><div class="bar-label">지난</div></div>
+    <div class="bar-col"><div class="bar-value">${formatter(curVal)}</div><div class="bar-el" style="height:${curH}px;background:${curColor};"></div><div class="bar-label">현재</div></div>
+  </div>`;
 }
 
-function deltaHtml(value, label, opts={}){
+function deltaHtml(curVal, prevVal, label, formatter, opts={}){
+  const value = pct(curVal, prevVal);
   if (value === null || value === undefined || !isFinite(value)) {
     return `<div class="delta flat">${label} 비교 데이터 없음</div>`;
   }
@@ -212,7 +218,8 @@ function deltaHtml(value, label, opts={}){
   const arrow = up ? "▲" : "▼";
   const cls = up ? "up" : "down";
   const num = opts.pp ? Math.abs(value * 100).toFixed(1) + "%p" : Math.abs(value * 100).toFixed(1) + "%";
-  return `<div class="delta ${cls}">${arrow} ${label} ${num}</div>${deltaBarHtml(value, opts)}`;
+  const bars = formatter ? compareBarsHtml(prevVal, curVal, formatter) : "";
+  return `<div class="delta ${cls}">${arrow} ${label} ${num}</div>${bars}`;
 }
 
 function parseRows(rows, year, month){
@@ -291,28 +298,24 @@ function renderRow1(current, prev){
   const map = buildDateMap(prev.days, current.days);
   const weekAgo = map.get(dayOffset(y.dateObj, -7).toDateString());
 
-  const totalDelta = weekAgo ? pct(y.total, weekAgo.total) : null;
   const selfNaverY = (y.channels[CH.self] || 0) + (y.channels[CH.naver] || 0);
   const selfNaverW = weekAgo ? (weekAgo.channels[CH.self] || 0) + (weekAgo.channels[CH.naver] || 0) : null;
-  const selfNaverDelta = weekAgo ? pct(selfNaverY, selfNaverW) : null;
 
   document.getElementById("row1").innerHTML =
-    card("어제 총 매출금액", fmtManwon(y.total), deltaHtml(totalDelta, "전주대비")) +
-    card("어제 자사몰+네이버 매출금액", fmtManwon(selfNaverY), deltaHtml(selfNaverDelta, "전주대비"));
+    card("어제 총 매출금액", fmtManwon(y.total), deltaHtml(y.total, weekAgo ? weekAgo.total : null, "전주대비", fmtManwon)) +
+    card("어제 자사몰+네이버 매출금액", fmtManwon(selfNaverY), deltaHtml(selfNaverY, selfNaverW, "전주대비", fmtManwon));
 }
 
 function renderRow2(current, prev){
   const mtdAvg = avgBy(current.days, d => d.total);
   const prevAvg = avgBy(prev.days, d => d.total);
-  const mtdDelta = pct(mtdAvg, prevAvg);
   const dim = daysInMonth(current.sheetConfig.year, current.sheetConfig.month);
   const projected = mtdAvg * dim;
   const prevTotal = sumBy(prev.days, d => d.total);
-  const projDelta = pct(projected, prevTotal);
 
   document.getElementById("row2").innerHTML =
-    card("이번달 일평균 총 매출", fmtManwon(mtdAvg), deltaHtml(mtdDelta, "전월대비")) +
-    card("현재 평균 지속시 예상 총 매출액", fmtEokwon(projected), deltaHtml(projDelta, "전월대비"));
+    card("이번달 일평균 총 매출", fmtManwon(mtdAvg), deltaHtml(mtdAvg, prevAvg, "전월대비", fmtManwon)) +
+    card("현재 평균 지속시 예상 총 매출액", fmtEokwon(projected), deltaHtml(projected, prevTotal, "전월대비", fmtEokwon));
 }
 
 function renderRow3(current, prev){
@@ -325,7 +328,7 @@ function renderRow3(current, prev){
   document.getElementById("row3").innerHTML = items.map(([label, key]) => {
     const cur = channelAvg(current.days, key);
     const prv = channelAvg(prev.days, key);
-    return card(label, fmtManwon(cur), deltaHtml(pct(cur, prv), "전월대비"));
+    return card(label, fmtManwon(cur), deltaHtml(cur, prv, "전월대비", fmtManwon));
   }).join("");
 }
 
@@ -397,7 +400,7 @@ function renderRow5(current, prev){
   document.getElementById("row5").innerHTML = items.map(([label, key]) => {
     const val = y ? (y.products[key] || 0) : 0;
     const wVal = weekAgo ? (weekAgo.products[key] || 0) : null;
-    return card(`${label} 어제 판매수량`, fmtCount(val), deltaHtml(weekAgo ? pct(val, wVal) : null, "전주대비"));
+    return card(`${label} 어제 판매수량`, fmtCount(val), deltaHtml(val, wVal, "전주대비", fmtCount));
   }).join("");
 }
 
@@ -406,26 +409,25 @@ function renderRow6(current, prev){
   document.getElementById("row6").innerHTML = items.map(([label, key]) => {
     const cur = productAvg(current.days, key);
     const prv = productAvg(prev.days, key);
-    return card(`${label} 이번달 일평균 판매수량`, fmtCountAvg(cur), deltaHtml(pct(cur, prv), "전달대비"));
+    return card(`${label} 이번달 일평균 판매수량`, fmtCountAvg(cur), deltaHtml(cur, prv, "전달대비", fmtCountAvg));
   }).join("");
 }
 
-function donutCard(label, ratio, deltaPP){
-  const pctText = (ratio * 100).toFixed(1) + "%";
+function donutCard(label, curRatio, prevRatio){
+  const pctText = (curRatio * 100).toFixed(1) + "%";
   const style = getComputedStyle(document.documentElement);
   const accent = style.getPropertyValue("--accent").trim() || "#4c8dff";
   const track = style.getPropertyValue("--track").trim() || "#262b36";
   const id = "donut_" + label.replace(/[^a-zA-Z0-9가-힣]/g, "");
-  const up = deltaPP === null ? null : deltaPP >= 0;
-  const deltaTxt = deltaPP === null
-    ? `<div class="delta flat">전월대비 비교 데이터 없음</div>`
-    : `<div class="delta ${up ? "up" : "down"}">${up ? "▲" : "▼"} 전월대비 ${Math.abs(deltaPP * 100).toFixed(1)}%p</div>${deltaBarHtml(deltaPP, {pp:true})}`;
+  const deltaPP = curRatio - prevRatio;
+  const up = deltaPP >= 0;
+  const deltaTxt = `<div class="delta ${up ? "up" : "down"}">${up ? "▲" : "▼"} 전월대비 ${Math.abs(deltaPP * 100).toFixed(1)}%p</div>${compareBarsHtml(prevRatio * 100, curRatio * 100, v => v.toFixed(1) + "%")}`;
   return {
     html: `<div class="card donut-card">
       <div class="donut-wrap"><canvas id="${id}"></canvas><div class="donut-label"><span class="pct">${pctText}</span><span class="nm">${label}</span></div></div>
       ${deltaTxt}
     </div>`,
-    id, ratio, accent, track
+    id, ratio: curRatio, accent, track
   };
 }
 
@@ -438,9 +440,9 @@ function renderRow7(current, prev){
   const prevMmall = channelSum(prev.days, CH.mmall) / (sumBy(prev.days, d => d.total) || 1);
 
   const defs = [
-    donutCard("자사몰+네이버", curSelfNaver, curSelfNaver - prevSelfNaver),
-    donutCard("쿠팡", curCoupang, curCoupang - prevCoupang),
-    donutCard("M몰", curMmall, curMmall - prevMmall)
+    donutCard("자사몰+네이버", curSelfNaver, prevSelfNaver),
+    donutCard("쿠팡", curCoupang, prevCoupang),
+    donutCard("M몰", curMmall, prevMmall)
   ];
   document.getElementById("row7").innerHTML = defs.map(d => d.html).join("");
   defs.forEach(d => {
