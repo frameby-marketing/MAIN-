@@ -41,6 +41,9 @@
   .card-value.big{font-size:26px;}
   .delta{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;margin-top:8px;}
   .delta.up{color:var(--good);} .delta.down{color:var(--bad);} .delta.flat{color:var(--sub);font-weight:500;}
+  .delta-bar-track{position:relative;height:6px;background:var(--track);border-radius:3px;margin-top:7px;}
+  .delta-bar-center{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--card-border);}
+  .delta-bar-fill{position:absolute;top:0;bottom:0;border-radius:3px;}
   .chart-card{background:var(--card);border:1px solid var(--card-border);border-radius:14px;padding:18px;}
   .chart-card .ttl{font-size:13px;font-weight:700;margin-bottom:14px;}
   .chart-wrap{position:relative;width:100%;}
@@ -78,7 +81,7 @@
   <div class="section-title">최근 3주 요일별 매출 추이 (전체 플랫폼 합산)</div>
   <div class="chart-card">
     <div class="legend" id="weekLegend"></div>
-    <div class="chart-wrap" style="height:280px;"><canvas id="weekChart" role="img" aria-label="최근 3주간 요일별 매출 추이 선 차트">최근 3주 요일별 매출 추이</canvas></div>
+    <div class="chart-wrap" style="height:320px;"><canvas id="weekChart" role="img" aria-label="최근 3주간 요일별 매출 추이 선 차트">최근 3주 요일별 매출 추이</canvas></div>
   </div>
 
   <div class="section-title">제품별 판매수량 — 어제</div>
@@ -103,6 +106,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script>
 /* ================= CONFIG ================= */
 const CONFIG = {
@@ -116,6 +120,7 @@ const CONFIG = {
 const CH = { self: "자사몰", naver: "스마트스토어", mmall: "M-mall", coupang: "쿠팡" };
 const PR = { mk: "MK", mc: "MC", dwpro: "DW Pro", dwplus: "DW Plus", ph: "PH" };
 const PALETTE = ["#4c8dff", "#8b7bf0", "#3ecf8e", "#ffb648", "#ff5c6c", "#38bdf8"];
+const WEEK_COLORS = ["#ff5c6c", "#facc15", "#4c8dff"]; /* 오래된 주차부터: 빨강, 노랑, 파랑 */
 
 /* ================= FALLBACK RAW DATA (원본 시트 그대로) ================= */
 const FALLBACK_JULY_CSV = `일자,자사몰,스마트스토어,M-mall,쿠팡,TOTAL,MK,MC,DW Pro,DW Plus,PH
@@ -188,6 +193,17 @@ function fmtEokwon(v){ return (v / 100000000).toFixed(1) + "억원"; }
 function fmtCount(v){ return Math.round(v).toLocaleString("ko-KR") + "개"; }
 function fmtCountAvg(v){ return v.toFixed(1) + "개"; }
 
+function deltaBarHtml(value, opts={}){
+  if (value === null || value === undefined || !isFinite(value)) return "";
+  const cap = opts.pp ? 0.10 : 1.0; /* %p 지표는 ±10%p, 그 외는 ±100%를 꽉 찬 막대 기준으로 사용 */
+  const magnitude = Math.min(Math.abs(value), cap) / cap;
+  const widthPct = (magnitude * 50).toFixed(1);
+  const up = value >= 0;
+  const color = up ? "var(--good)" : "var(--bad)";
+  const posStyle = up ? `left:50%;width:${widthPct}%;` : `right:50%;width:${widthPct}%;`;
+  return `<div class="delta-bar-track"><div class="delta-bar-center"></div><div class="delta-bar-fill" style="${posStyle}background:${color};"></div></div>`;
+}
+
 function deltaHtml(value, label, opts={}){
   if (value === null || value === undefined || !isFinite(value)) {
     return `<div class="delta flat">${label} 비교 데이터 없음</div>`;
@@ -196,7 +212,7 @@ function deltaHtml(value, label, opts={}){
   const arrow = up ? "▲" : "▼";
   const cls = up ? "up" : "down";
   const num = opts.pp ? Math.abs(value * 100).toFixed(1) + "%p" : Math.abs(value * 100).toFixed(1) + "%";
-  return `<div class="delta ${cls}">${arrow} ${label} ${num}</div>`;
+  return `<div class="delta ${cls}">${arrow} ${label} ${num}</div>${deltaBarHtml(value, opts)}`;
 }
 
 function parseRows(rows, year, month){
@@ -329,31 +345,44 @@ function renderWeekChart(current, prev){
   legendEl.innerHTML = weeks.map((w, i) => {
     const end = new Date(w.start); end.setDate(end.getDate() + 6);
     const txt = `${w.start.getMonth()+1}/${w.start.getDate()} ~ ${end.getMonth()+1}/${end.getDate()}`;
-    return `<span><i style="background:${PALETTE[i % PALETTE.length]}"></i>${txt}</span>`;
+    return `<span><i style="background:${WEEK_COLORS[i % WEEK_COLORS.length]}"></i>${txt}</span>`;
   }).join("");
 
   const style = getComputedStyle(document.documentElement);
   const muted = style.getPropertyValue("--sub").trim() || "#9aa1ac";
+  const text = style.getPropertyValue("--text").trim() || "#e8eaed";
   const grid = style.getPropertyValue("--grid").trim() || "#242832";
 
   if (window.__weekChart) window.__weekChart.destroy();
   window.__weekChart = new Chart(document.getElementById("weekChart"), {
     type: "line",
+    plugins: window.ChartDataLabels ? [window.ChartDataLabels] : [],
     data: {
       labels,
       datasets: weeks.map((w, i) => ({
         label: "",
         data: w.values,
-        borderColor: PALETTE[i % PALETTE.length],
-        backgroundColor: PALETTE[i % PALETTE.length],
-        pointRadius: 4, borderWidth: 2, tension: 0.25, spanGaps: true
+        borderColor: WEEK_COLORS[i % WEEK_COLORS.length],
+        backgroundColor: WEEK_COLORS[i % WEEK_COLORS.length],
+        pointRadius: 4, borderWidth: 2, tension: 0, spanGaps: true
       }))
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { mode: "index", intersect: false } },
+      layout: { padding: { top: 24 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: "index", intersect: false },
+        datalabels: {
+          display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null,
+          formatter: (value) => value === null ? "" : fmtManwon(value),
+          anchor: "end", align: "top", offset: 4,
+          color: (ctx) => ctx.dataset.borderColor,
+          font: { size: 10, weight: "600" }
+        }
+      },
       scales: {
-        x: { grid: { display: false }, ticks: { color: muted, font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { color: text, font: { size: 15, weight: "600" } } },
         y: { grid: { color: grid }, ticks: { color: muted, font: { size: 11 } }, beginAtZero: true }
       }
     }
@@ -390,7 +419,7 @@ function donutCard(label, ratio, deltaPP){
   const up = deltaPP === null ? null : deltaPP >= 0;
   const deltaTxt = deltaPP === null
     ? `<div class="delta flat">전월대비 비교 데이터 없음</div>`
-    : `<div class="delta ${up ? "up" : "down"}">${up ? "▲" : "▼"} 전월대비 ${Math.abs(deltaPP * 100).toFixed(1)}%p</div>`;
+    : `<div class="delta ${up ? "up" : "down"}">${up ? "▲" : "▼"} 전월대비 ${Math.abs(deltaPP * 100).toFixed(1)}%p</div>${deltaBarHtml(deltaPP, {pp:true})}`;
   return {
     html: `<div class="card donut-card">
       <div class="donut-wrap"><canvas id="${id}"></canvas><div class="donut-label"><span class="pct">${pctText}</span><span class="nm">${label}</span></div></div>
