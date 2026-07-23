@@ -69,6 +69,17 @@
   .donut-label .nm{font-size:11px;color:var(--sub);margin-top:2px;}
   footer{color:var(--sub);font-size:12px;text-align:center;margin-top:34px;line-height:1.7;}
   code{background:var(--track);padding:1px 6px;border-radius:4px;font-size:11.5px;}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.primary:hover{opacity:.9;border-color:var(--accent);}
+  .auth-gate{min-height:60vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;}
+  .auth-card{max-width:380px;width:100%;text-align:center;background:var(--card);border:1px solid var(--card-border);border-radius:16px;padding:36px 28px;}
+  .auth-icon{font-size:32px;margin-bottom:14px;}
+  .auth-card h2{font-size:17px;font-weight:700;margin:0 0 8px;}
+  .auth-card p{font-size:13px;color:var(--sub);margin:0 0 22px;line-height:1.6;}
+  .auth-card .btn{width:100%;justify-content:center;padding:12px;font-size:14px;}
+  .auth-error{color:var(--bad);font-size:12.5px;margin-top:14px;line-height:1.6;}
+  .auth-user{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--sub);}
+  .auth-user img{width:22px;height:22px;border-radius:50%;}
 </style>
 </head>
 <body>
@@ -76,16 +87,29 @@
   <header>
     <div>
       <h1>전체 플랫폼 매출 대시보드</h1>
-      <div class="sub" id="periodLabel">기준일 불러오는 중...</div>
-      <div class="status" id="statusBadge">데이터 불러오는 중...</div>
+      <div class="sub" id="periodLabel">Google 계정 로그인이 필요합니다</div>
+      <div class="status" id="statusBadge" style="display:none;"></div>
     </div>
     <div class="topbar-actions">
       <a class="btn" id="sheetLink" href="#" target="_blank" rel="noopener">시트로 바로가기 ↗</a>
-      <button class="btn" id="refreshBtn"><span class="spin-icon">🔄</span> 새로고침</button>
+      <button class="btn" id="refreshBtn" style="display:none;"><span class="spin-icon">🔄</span> 새로고침</button>
       <button class="btn" id="themeToggle">☀️ 라이트모드</button>
+      <div class="auth-user" id="authUser" style="display:none;"></div>
+      <button class="btn" id="logoutBtn" style="display:none;">로그아웃</button>
     </div>
   </header>
 
+  <div id="authGate" class="auth-gate">
+    <div class="auth-card">
+      <div class="auth-icon">🔒</div>
+      <h2>Google 계정 로그인이 필요합니다</h2>
+      <p>이 대시보드는 초대된 구글 계정에만 공개되어 있습니다. 시트 접근 권한이 있는 계정으로 로그인해주세요.</p>
+      <button class="btn primary" id="loginBtn" disabled>로그인 준비 중...</button>
+      <p class="auth-error" id="authError" style="display:none;"></p>
+    </div>
+  </div>
+
+  <div id="dashboardContent" style="display:none;">
   <div class="grid-4" id="row1"></div>
   <div class="section-title">채널별 일평균 매출</div>
   <div class="grid-4" id="row3"></div>
@@ -116,13 +140,13 @@
   <div class="grid-3" id="row7"></div>
 
   <footer>
-    라이브 연동: 구글 시트를 <b>공유 설정 &gt; 링크가 있는 모든 사용자(뷰어)</b>로 열어두면 이 페이지가 자동으로 최신 데이터를 불러옵니다.
-    연동이 안 되면 페이지 상단 상태 배지가 "샘플 데이터"로 표시되며, 이 경우 최신 원본 데이터를 붙여넣어 파일을 다시 만들어 드릴게요.
+    이 대시보드는 Google 로그인 후 초대된 계정에만 실제 데이터가 표시됩니다. 시트 자체는 비공개로 두셔도 됩니다.
     <br>매달 새 시트(예: 2026-08)가 생기면 이 파일 상단 <code>CONFIG.currentSheet</code> / <code>CONFIG.prevSheet</code>의 시트명·범위만 갱신하면 됩니다.
   </footer>
+  </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://accounts.google.com/gsi/client"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script>
@@ -133,69 +157,15 @@ const CONFIG = {
   productMoreUrl: "https://frameby-marketing.github.io/Product/",
   /* 매달 새 시트가 생기면 여기만 갱신하세요. currentSheet가 이번달, prevSheet가 지난달입니다. */
   currentSheet: { name: "2026-07", range: "B224:L265", year: 2026, month: 7 },
-  prevSheet:    { name: "2026-06", range: "B220:L260", year: 2026, month: 6 }
+  prevSheet:    { name: "2026-06", range: "B220:L260", year: 2026, month: 6 },
+  /* 구글 클라우드 콘솔에서 발급받은 OAuth 클라이언트 ID로 교체하세요. (설정 가이드 별도 전달) */
+  oauthClientId: "YOUR_CLIENT_ID.apps.googleusercontent.com",
+  oauthScope: "https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
 };
 const CH = { self: "자사몰", naver: "스마트스토어", mmall: "M-mall", coupang: "쿠팡" };
 const PR = { mk: "MK", mc: "MC", dwpro: "DW프로", dwplus: "DW플러스", ph: "PH" }; /* 실제 시트 헤더가 "DW프로"/"DW플러스"(한글)임을 확인함 */
 const PALETTE = ["#4c8dff", "#8b7bf0", "#3ecf8e", "#ffb648", "#ff5c6c", "#38bdf8"];
 const WEEK_COLORS = ["#ff5c6c", "#facc15", "#4c8dff"]; /* 오래된 주차부터: 빨강, 노랑, 파랑 */
-
-/* ================= FALLBACK RAW DATA (원본 시트 그대로) ================= */
-const FALLBACK_JULY_CSV = `일자,자사몰,스마트스토어,M-mall,쿠팡,TOTAL,MK,MC,DW프로,DW플러스,PH
-7/1 수,1524460,3373970,483130,857605,6239165,34,4,14,11,32
-7/2 목,1037820,2134070,330470,962094,4464454,19,4,6,7,34
-7/3 금,1037340,1797060,179770,953806,3967976,28,7,4,4,23
-7/4 토,799190,976600,243110,921620,2940520,26,2,2,1,12
-7/5 일,1156680,917600,317360,818370,3210010,23,5,3,0,18
-7/6 월,876200,2570060,553520,1131592,5131372,27,7,3,24,9
-7/7 화,669840,1102520,733180,1071658,3577198,22,5,1,7,5
-7/8 수,497570,1438300,366620,445942,2748432,17,9,4,7,5
-7/9 목,708350,1820900,239710,882896,3651856,25,3,1,4,22
-7/10 금,801900,1681600,264590,746662,3494752,28,10,5,3,12
-7/11 토,1031850,1352200,242310,818804,3445164,26,8,5,4,8
-7/12 일,987600,1633450,331550,699062,3651662,21,5,8,2,12
-7/13 월,896950,1426400,263680,531622,3118652,20,5,6,4,12
-7/14 화,897550,1111400,198370,742378,2949698,24,5,2,8,8
-7/15 수,1073550,1563000,106160,647759,3390469,35,7,5,7,7
-7/16 목,911550,902400,114630,740390,2668970,20,3,2,4,11
-7/17 금,625850,992700,123100,882196,2623846,25,3,2,3,6
-7/18 토,888950,1004400,346648,894621,3134619,20,4,7,4,2
-7/19 일,972200,1261100,381270,702415,3316985,32,6,4,6,8
-7/20 월,1005100,1511400,611650,693728,3821878,35,5,6,5,9
-7/21 화,751750,1232050,567300,851025,3402125,30,5,4,3,6
-7/22 수,1303650,1184850,399670,820792,3708962,36,4,3,11,9`;
-
-const FALLBACK_JUNE_CSV = `일자,자사몰,스마트스토어,M-mall,쿠팡,TOTAL,MK,MC,DW프로,DW플러스,PH
-6/1 월,1573420,1676100,560630,514360,4324510,32,18,6,2,22
-6/2 화,1747020,1442200,297970,538650,4025840,37,14,5,3,22
-6/3 수,1609920,1842800,397100,717500,4567320,22,21,7,4,41
-6/4 목,1346090,1972500,462290,679511,4460391,22,20,6,4,29
-6/5 금,1051740,1585300,243240,995190,3875470,21,12,8,2,30
-6/6 토,1097690,1011900,434200,461391,3005181,18,13,4,2,16
-6/7 일,1211000,1318900,312970,658560,3501430,26,14,3,2,20
-6/8 월,1327050,1677200,771650,469490,4245390,29,17,5,3,24
-6/9 화,1406900,1405650,774160,536130,4122840,34,15,5,0,25
-6/10 수,1484200,2080550,388170,473060,4425980,38,15,4,5,35
-6/11 목,1166600,1546800,279940,873670,3867010,31,9,3,2,25
-6/12 금,1114950,1719650,523400,1213730,4571730,33,14,3,5,24
-6/13 토,872150,902500,463940,605150,2843740,23,10,4,2,8
-6/14 일,1083500,1299100,522540,551530,3456670,23,14,6,2,19
-6/15 월,955000,1468760,559950,805490,3789200,30,8,3,1,24
-6/16 화,1283300,2149000,629330,794710,4856340,29,6,6,7,31
-6/17 수,1460450,1818800,522910,735420,4537580,31,4,7,4,28
-6/18 목,1213000,1698220,396900,829570,4137690,33,8,5,4,22
-6/19 금,1335350,1070640,395200,759535,3560725,26,7,3,4,22
-6/20 토,855050,1146000,697730,1240036,3938816,29,8,0,2,18
-6/21 일,1437600,1655970,638610,798602,4530782,27,9,4,5,24
-6/22 월,1472530,2202850,1194090,772254,5641724,31,10,10,7,21
-6/23 화,1209840,1501340,807780,589680,4108640,29,9,6,3,17
-6/24 수,1215710,1681600,492670,732760,4122740,28,6,5,7,17
-6/25 목,1501300,1231780,279270,989660,4002010,22,6,3,5,21
-6/26 금,1325830,1865870,308140,429009,3928849,14,10,3,6,31
-6/27 토,1160980,1263140,264320,831817,3520257,25,6,4,6,10
-6/28 일,1060620,1312640,580580,875707,3829547,25,6,3,4,17
-6/29 월,1100960,1781980,364800,724605,3972345,24,13,2,2,27
-6/30 화,943100,1771960,331660,760599,3807319,20,5,6,3,25`;
 
 /* ================= HELPERS ================= */
 function toNumber(v){
@@ -273,22 +243,36 @@ function parseRows(rows, year, month){
   return { days, channelKeys, productKeys };
 }
 
-function gvizCsvUrl(sheet){
-  return `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet.name)}&range=${encodeURIComponent(sheet.range)}`;
+/* Google Sheets API (OAuth) 로 특정 시트/범위를 읽어온다. 인증된 사용자가 이 시트에 대한
+   실제 접근 권한이 없으면 403이 떨어지고, 여기서 예외를 던진다(값을 임의로 채우지 않음). */
+async function fetchSheetValues(sheetConfig, accessToken){
+  const range = encodeURIComponent(`${sheetConfig.name}!${sheetConfig.range}`);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${range}?valueRenderOption=FORMATTED_VALUE`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) {
+    const err = new Error(`시트 데이터를 불러오지 못했습니다 (HTTP ${res.status})`);
+    err.status = res.status;
+    throw err;
+  }
+  const json = await res.json();
+  return json.values || [];
 }
 
-async function loadMonth(sheetConfig, fallbackCsv){
-  let csvText = fallbackCsv, live = false;
-  try {
-    const res = await fetch(gvizCsvUrl(sheetConfig));
-    if (res.ok) {
-      const text = await res.text();
-      if (text && text.trim().length > 0 && !text.trim().startsWith("<")) { csvText = text; live = true; }
-    }
-  } catch (e) { console.warn("live fetch failed for", sheetConfig.name, e); }
-  const rows = Papa.parse(csvText, { header: true, skipEmptyLines: true }).data;
+function valuesToRowObjects(values){
+  if (!values || !values.length) return [];
+  const headers = values[0];
+  return values.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? row[i] : ""; });
+    return obj;
+  });
+}
+
+async function loadMonth(sheetConfig, accessToken){
+  const values = await fetchSheetValues(sheetConfig, accessToken);
+  const rows = valuesToRowObjects(values);
   const parsed = parseRows(rows, sheetConfig.year, sheetConfig.month);
-  return { ...parsed, live, sheetConfig };
+  return { ...parsed, live: true, sheetConfig };
 }
 
 function sumBy(days, fn){ return days.reduce((s, d) => s + fn(d), 0); }
@@ -470,18 +454,11 @@ function renderRow7(current, prev){
 
 function renderStatus(current, prev){
   const badge = document.getElementById("statusBadge");
+  badge.style.display = "inline-block";
   const now = new Date();
   const stamp = `마지막 갱신 ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
-  if (current.live && prev.live) {
-    badge.textContent = `구글 시트 라이브 연동됨 · ${stamp}`;
-    badge.classList.add("live");
-  } else {
-    const parts = [];
-    if (!current.live) parts.push(CONFIG.currentSheet.name);
-    if (!prev.live) parts.push(CONFIG.prevSheet.name);
-    badge.textContent = `샘플 데이터 사용 중 (${parts.join(", ")} 라이브 연동 실패) · ${stamp}`;
-    badge.classList.remove("live");
-  }
+  badge.textContent = `구글 시트 라이브 연동됨 · ${stamp}`;
+  badge.classList.add("live");
   const y = current.days[current.days.length - 1];
   document.getElementById("periodLabel").textContent = y
     ? `기준일: ${CONFIG.currentSheet.year}-${String(CONFIG.currentSheet.month).padStart(2,"0")}-${String(y.dateObj.getDate()).padStart(2,"0")} (이번달 ${current.days.length}일째 데이터)`
@@ -496,13 +473,114 @@ function applyTheme(theme){
   localStorage.setItem("theme", theme);
 }
 
-/* ================= INIT ================= */
+/* ================= AUTH (Google OAuth) ================= */
+let ACCESS_TOKEN = null;
+let TOKEN_CLIENT = null;
 let CURRENT_DATA = null, PREV_DATA = null;
 
+function showAuthError(msg){
+  const el = document.getElementById("authError");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+function clearAuthError(){
+  const el = document.getElementById("authError");
+  el.style.display = "none";
+  el.textContent = "";
+}
+
+function showAuthGate(){
+  document.getElementById("authGate").style.display = "flex";
+  document.getElementById("dashboardContent").style.display = "none";
+  document.getElementById("refreshBtn").style.display = "none";
+  document.getElementById("authUser").style.display = "none";
+  document.getElementById("logoutBtn").style.display = "none";
+  document.getElementById("statusBadge").style.display = "none";
+  document.getElementById("periodLabel").textContent = "Google 계정 로그인이 필요합니다";
+}
+
+function showDashboard(){
+  document.getElementById("authGate").style.display = "none";
+  document.getElementById("dashboardContent").style.display = "block";
+  document.getElementById("refreshBtn").style.display = "inline-flex";
+  document.getElementById("logoutBtn").style.display = "inline-flex";
+}
+
+async function fetchUserInfo(accessToken){
+  try {
+    const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) { return null; }
+}
+
+function renderAuthUser(userInfo){
+  const el = document.getElementById("authUser");
+  if (!userInfo) { el.style.display = "none"; return; }
+  el.style.display = "flex";
+  el.innerHTML = (userInfo.picture ? `<img src="${userInfo.picture}" alt="">` : "") + `<span>${userInfo.email || userInfo.name || "로그인됨"}</span>`;
+}
+
+function initTokenClient(){
+  if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) return false;
+  TOKEN_CLIENT = google.accounts.oauth2.initTokenClient({
+    client_id: CONFIG.oauthClientId,
+    scope: CONFIG.oauthScope,
+    callback: async (resp) => {
+      if (resp.error) {
+        showAuthError("로그인이 취소되었거나 실패했습니다. 다시 시도해주세요.");
+        const btn = document.getElementById("loginBtn");
+        btn.disabled = false;
+        btn.textContent = "Google 계정으로 로그인";
+        return;
+      }
+      ACCESS_TOKEN = resp.access_token;
+      await afterLogin();
+    }
+  });
+  const btn = document.getElementById("loginBtn");
+  btn.disabled = false;
+  btn.textContent = "Google 계정으로 로그인";
+  return true;
+}
+
+function waitForGoogleIdentity(){
+  if (initTokenClient()) return;
+  const iv = setInterval(() => { if (initTokenClient()) clearInterval(iv); }, 200);
+}
+
+function handleLoginClick(){
+  clearAuthError();
+  if (!TOKEN_CLIENT) { showAuthError("Google 로그인 준비 중입니다. 잠시 후 다시 시도해주세요."); return; }
+  const btn = document.getElementById("loginBtn");
+  btn.disabled = true;
+  btn.textContent = "로그인 중...";
+  TOKEN_CLIENT.requestAccessToken({ prompt: "consent" });
+}
+
+function handleLogout(){
+  if (ACCESS_TOKEN && window.google && window.google.accounts && window.google.accounts.oauth2) {
+    google.accounts.oauth2.revoke(ACCESS_TOKEN, () => {});
+  }
+  ACCESS_TOKEN = null;
+  CURRENT_DATA = null; PREV_DATA = null;
+  showAuthGate();
+  const btn = document.getElementById("loginBtn");
+  btn.disabled = !TOKEN_CLIENT;
+  btn.textContent = TOKEN_CLIENT ? "Google 계정으로 로그인" : "로그인 준비 중...";
+}
+
+function explainLoadError(e){
+  if (e && e.status === 403) return "이 계정은 시트 접근 권한이 없습니다. 관리자에게 초대를 요청하세요.";
+  if (e && e.status === 401) return "로그인이 만료되었습니다. 다시 로그인해주세요.";
+  return "데이터를 불러오지 못했습니다: " + (e && e.message ? e.message : e);
+}
+
+/* ================= DATA LOAD + RENDER ================= */
 async function loadAndRenderAll(){
   const [current, prev] = await Promise.all([
-    loadMonth(CONFIG.currentSheet, FALLBACK_JULY_CSV),
-    loadMonth(CONFIG.prevSheet, FALLBACK_JUNE_CSV)
+    loadMonth(CONFIG.currentSheet, ACCESS_TOKEN),
+    loadMonth(CONFIG.prevSheet, ACCESS_TOKEN)
   ]);
   CURRENT_DATA = current; PREV_DATA = prev;
 
@@ -515,7 +593,23 @@ async function loadAndRenderAll(){
   renderRow7(current, prev);
 }
 
-async function init(){
+async function afterLogin(){
+  const btn = document.getElementById("loginBtn");
+  try {
+    const userInfo = await fetchUserInfo(ACCESS_TOKEN);
+    await loadAndRenderAll();
+    renderAuthUser(userInfo);
+    showDashboard();
+  } catch (e) {
+    ACCESS_TOKEN = null;
+    btn.disabled = false;
+    btn.textContent = "Google 계정으로 로그인";
+    showAuthError(explainLoadError(e));
+  }
+}
+
+/* ================= INIT ================= */
+function init(){
   document.getElementById("sheetLink").href = CONFIG.spreadsheetUrl;
   document.getElementById("productMoreBtn").href = CONFIG.productMoreUrl;
 
@@ -524,9 +618,14 @@ async function init(){
   document.getElementById("themeToggle").addEventListener("click", () => {
     const cur = document.documentElement.getAttribute("data-theme");
     applyTheme(cur === "dark" ? "light" : "dark");
-    renderAllWeekCharts(CURRENT_DATA, PREV_DATA);
-    renderRow7(CURRENT_DATA, PREV_DATA);
+    if (CURRENT_DATA && PREV_DATA) {
+      renderAllWeekCharts(CURRENT_DATA, PREV_DATA);
+      renderRow7(CURRENT_DATA, PREV_DATA);
+    }
   });
+
+  document.getElementById("loginBtn").addEventListener("click", handleLoginClick);
+  document.getElementById("logoutBtn").addEventListener("click", handleLogout);
 
   const refreshBtn = document.getElementById("refreshBtn");
   refreshBtn.addEventListener("click", async () => {
@@ -534,13 +633,19 @@ async function init(){
     refreshBtn.classList.add("spinning");
     try {
       await loadAndRenderAll();
+    } catch (e) {
+      if (e && (e.status === 401 || e.status === 403)) {
+        handleLogout();
+        showAuthError(explainLoadError(e));
+      }
     } finally {
       refreshBtn.disabled = false;
       refreshBtn.classList.remove("spinning");
     }
   });
 
-  await loadAndRenderAll();
+  showAuthGate();
+  waitForGoogleIdentity();
 }
 
 function renderAllWeekCharts(current, prev){
