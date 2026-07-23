@@ -30,6 +30,10 @@
   .topbar-actions{display:flex;gap:8px;}
   .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid var(--card-border);background:var(--card);color:var(--text);font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap;}
   .btn:hover{border-color:var(--accent);}
+  .btn:disabled{opacity:.55;cursor:default;}
+  .btn.spinning{animation:none;}
+  .btn.spinning .spin-icon{display:inline-block;animation:spin .8s linear infinite;}
+  @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
   .btn.wide{display:flex;justify-content:center;padding:12px;font-size:13.5px;}
   .status{font-size:11.5px;padding:4px 10px;border-radius:20px;background:var(--track);color:var(--sub);margin-top:6px;display:inline-block;}
   .status.live{color:var(--good);}
@@ -77,6 +81,7 @@
     </div>
     <div class="topbar-actions">
       <a class="btn" id="sheetLink" href="#" target="_blank" rel="noopener">시트로 바로가기 ↗</a>
+      <button class="btn" id="refreshBtn"><span class="spin-icon">🔄</span> 새로고침</button>
       <button class="btn" id="themeToggle">☀️ 라이트모드</button>
     </div>
   </header>
@@ -465,14 +470,16 @@ function renderRow7(current, prev){
 
 function renderStatus(current, prev){
   const badge = document.getElementById("statusBadge");
+  const now = new Date();
+  const stamp = `마지막 갱신 ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
   if (current.live && prev.live) {
-    badge.textContent = "구글 시트 라이브 연동됨";
+    badge.textContent = `구글 시트 라이브 연동됨 · ${stamp}`;
     badge.classList.add("live");
   } else {
     const parts = [];
     if (!current.live) parts.push(CONFIG.currentSheet.name);
     if (!prev.live) parts.push(CONFIG.prevSheet.name);
-    badge.textContent = `샘플 데이터 사용 중 (${parts.join(", ")} 라이브 연동 실패)`;
+    badge.textContent = `샘플 데이터 사용 중 (${parts.join(", ")} 라이브 연동 실패) · ${stamp}`;
     badge.classList.remove("live");
   }
   const y = current.days[current.days.length - 1];
@@ -492,19 +499,7 @@ function applyTheme(theme){
 /* ================= INIT ================= */
 let CURRENT_DATA = null, PREV_DATA = null;
 
-async function init(){
-  document.getElementById("sheetLink").href = CONFIG.spreadsheetUrl;
-  document.getElementById("productMoreBtn").href = CONFIG.productMoreUrl;
-
-  const saved = localStorage.getItem("theme") || "dark";
-  applyTheme(saved);
-  document.getElementById("themeToggle").addEventListener("click", () => {
-    const cur = document.documentElement.getAttribute("data-theme");
-    applyTheme(cur === "dark" ? "light" : "dark");
-    renderAllWeekCharts(CURRENT_DATA, PREV_DATA);
-    renderRow7(CURRENT_DATA, PREV_DATA);
-  });
-
+async function loadAndRenderAll(){
   const [current, prev] = await Promise.all([
     loadMonth(CONFIG.currentSheet, FALLBACK_JULY_CSV),
     loadMonth(CONFIG.prevSheet, FALLBACK_JUNE_CSV)
@@ -518,6 +513,34 @@ async function init(){
   renderRow5(current, prev);
   renderRow6(current, prev);
   renderRow7(current, prev);
+}
+
+async function init(){
+  document.getElementById("sheetLink").href = CONFIG.spreadsheetUrl;
+  document.getElementById("productMoreBtn").href = CONFIG.productMoreUrl;
+
+  const saved = localStorage.getItem("theme") || "dark";
+  applyTheme(saved);
+  document.getElementById("themeToggle").addEventListener("click", () => {
+    const cur = document.documentElement.getAttribute("data-theme");
+    applyTheme(cur === "dark" ? "light" : "dark");
+    renderAllWeekCharts(CURRENT_DATA, PREV_DATA);
+    renderRow7(CURRENT_DATA, PREV_DATA);
+  });
+
+  const refreshBtn = document.getElementById("refreshBtn");
+  refreshBtn.addEventListener("click", async () => {
+    refreshBtn.disabled = true;
+    refreshBtn.classList.add("spinning");
+    try {
+      await loadAndRenderAll();
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.classList.remove("spinning");
+    }
+  });
+
+  await loadAndRenderAll();
 }
 
 function renderAllWeekCharts(current, prev){
