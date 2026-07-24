@@ -365,7 +365,7 @@ function renderWeekChart(current, prev, opts){
         data: w.values,
         borderColor: WEEK_COLORS[i % WEEK_COLORS.length],
         backgroundColor: WEEK_COLORS[i % WEEK_COLORS.length],
-        pointRadius: 4, borderWidth: i === weeks.length - 1 ? 4 : 2, tension: 0, spanGaps: true
+        pointRadius: 4, borderWidth: i === weeks.length - 1 ? 6 : 2, tension: 0, spanGaps: true
       }))
     },
     options: {
