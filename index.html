@@ -136,6 +136,30 @@
     <a class="btn wide" id="productMoreBtn" href="#" target="_blank" rel="noopener">제품별 성과 데이터 더보기 →</a>
   </div>
 
+  <div class="section-title">제품별 판매수량 추이 (최근 3주)</div>
+  <div class="grid-2" id="productTrendRow">
+    <div class="chart-card">
+      <div class="ttl">MK 판매수량 추이</div>
+      <div class="legend" id="mkTrendLegend"></div>
+      <div class="chart-wrap" style="height:220px;"><canvas id="mkTrendChart" role="img" aria-label="최근 3주간 MK 판매수량 추이">MK 판매수량 추이</canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="ttl">PH 판매수량 추이</div>
+      <div class="legend" id="phTrendLegend"></div>
+      <div class="chart-wrap" style="height:220px;"><canvas id="phTrendChart" role="img" aria-label="최근 3주간 PH 판매수량 추이">PH 판매수량 추이</canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="ttl">DW프로 판매수량 추이</div>
+      <div class="legend" id="dwproTrendLegend"></div>
+      <div class="chart-wrap" style="height:220px;"><canvas id="dwproTrendChart" role="img" aria-label="최근 3주간 DW프로 판매수량 추이">DW프로 판매수량 추이</canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="ttl">DW플러스 판매수량 추이</div>
+      <div class="legend" id="dwplusTrendLegend"></div>
+      <div class="chart-wrap" style="height:220px;"><canvas id="dwplusTrendChart" role="img" aria-label="최근 3주간 DW플러스 판매수량 추이">DW플러스 판매수량 추이</canvas></div>
+    </div>
+  </div>
+
   <div class="section-title">채널 매출 비중 (이번달)</div>
   <div class="grid-3" id="row7"></div>
 
@@ -166,6 +190,7 @@ const CH = { self: "자사몰", naver: "스마트스토어", mmall: "M-mall", co
 const PR = { mk: "MK", mc: "MC", dwpro: "DW프로", dwplus: "DW플러스", ph: "PH" }; /* 실제 시트 헤더가 "DW프로"/"DW플러스"(한글)임을 확인함 */
 const PALETTE = ["#4c8dff", "#8b7bf0", "#3ecf8e", "#ffb648", "#ff5c6c", "#38bdf8"];
 const WEEK_COLORS = ["#ff5c6c", "#facc15", "#4c8dff"]; /* 오래된 주차부터: 빨강, 노랑, 파랑 */
+const WEEKDAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
 /* ================= HELPERS ================= */
 function toNumber(v){
@@ -288,19 +313,48 @@ function buildDateMap(...arrs){
 }
 function dayOffset(date, n){ const d = new Date(date); d.setDate(d.getDate() + n); return d; }
 
+/* 금/토/일은 월요일에 한꺼번에 입력되는 운영 특성 반영:
+   - 화~목요일에 열람: 평소처럼 "어제"(마지막 채운 날) 1일치를 보여준다.
+   - 금/토/일요일에 열람: 아직 그 주 금토일 데이터가 안 채워졌으므로, 마지막 채운 날(목요일)이 자동으로 유지된다.
+   - 월요일에 열람: 금토일 데이터가 한꺼번에 채워진 상태이므로, "어제" 기준을 지난 금·토·일 3일 평균으로 바꾼다. */
+function getYesterdayBasisDays(current, prev){
+  const lastFilled = current.days[current.days.length - 1];
+  if (!lastFilled) return [];
+  const todayDow = new Date().getDay(); // 0=일,1=월,...,6=토
+  if (todayDow === 1) {
+    const allDays = [...prev.days, ...current.days].sort((a, b) => a.dateObj - b.dateObj);
+    const idx = allDays.findIndex(d => d.dateObj.getTime() === lastFilled.dateObj.getTime());
+    if (idx === -1) return [lastFilled];
+    const start = Math.max(0, idx - 2);
+    return allDays.slice(start, idx + 1);
+  }
+  return [lastFilled];
+}
+function avgOfDays(days, fn){ return days.length ? days.reduce((s, d) => s + fn(d), 0) / days.length : 0; }
+function weekAgoAvgOfDays(basisDays, map, fn){
+  const vals = basisDays.map(d => {
+    const wa = map.get(dayOffset(d.dateObj, -7).toDateString());
+    return wa ? fn(wa) : null;
+  }).filter(v => v !== null);
+  return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+}
+function yesterdayLabelSuffix(basisDays){ return basisDays.length > 1 ? " (지난 금·토·일 평균)" : ""; }
+
 /* ================= RENDER ================= */
 function card(label, valueHtml, deltasHtml){
   return `<div class="card"><div class="card-label">${label}</div><div class="card-value">${valueHtml}</div>${deltasHtml}</div>`;
 }
 
 function renderRow1(current, prev){
-  const y = current.days[current.days.length - 1];
-  if (!y) { document.getElementById("row1").innerHTML = "<div class='card'>데이터 없음</div>"; return; }
+  const basisDays = getYesterdayBasisDays(current, prev);
+  if (!basisDays.length) { document.getElementById("row1").innerHTML = "<div class='card'>데이터 없음</div>"; return; }
   const map = buildDateMap(prev.days, current.days);
-  const weekAgo = map.get(dayOffset(y.dateObj, -7).toDateString());
+  const suffix = yesterdayLabelSuffix(basisDays);
 
-  const selfNaverY = (y.channels[CH.self] || 0) + (y.channels[CH.naver] || 0);
-  const selfNaverW = weekAgo ? (weekAgo.channels[CH.self] || 0) + (weekAgo.channels[CH.naver] || 0) : null;
+  const yTotal = avgOfDays(basisDays, d => d.total);
+  const yTotalWeekAgo = weekAgoAvgOfDays(basisDays, map, d => d.total);
+  const selfNaverY = avgOfDays(basisDays, d => (d.channels[CH.self] || 0) + (d.channels[CH.naver] || 0));
+  const selfNaverW = weekAgoAvgOfDays(basisDays, map, d => (d.channels[CH.self] || 0) + (d.channels[CH.naver] || 0));
 
   const mtdAvg = avgBy(current.days, d => d.total);
   const prevAvg = avgBy(prev.days, d => d.total);
@@ -309,8 +363,8 @@ function renderRow1(current, prev){
   const prevTotal = sumBy(prev.days, d => d.total);
 
   document.getElementById("row1").innerHTML =
-    card("어제 총 매출금액", fmtManwon(y.total), deltaHtml(y.total, weekAgo ? weekAgo.total : null, "전주대비", fmtManwon)) +
-    card("어제 자사몰+네이버 매출금액", fmtManwon(selfNaverY), deltaHtml(selfNaverY, selfNaverW, "전주대비", fmtManwon)) +
+    card(`어제 총 매출금액${suffix}`, fmtManwon(yTotal), deltaHtml(yTotal, yTotalWeekAgo, "전주대비", fmtManwon)) +
+    card(`어제 자사몰+네이버 매출금액${suffix}`, fmtManwon(selfNaverY), deltaHtml(selfNaverY, selfNaverW, "전주대비", fmtManwon)) +
     card("이번달 일평균 총 매출", fmtManwon(mtdAvg), deltaHtml(mtdAvg, prevAvg, "전월대비", fmtManwon)) +
     card("현재 평균 지속시 예상 총 매출액", fmtEokwon(projected), deltaHtml(projected, prevTotal, "전월대비", fmtEokwon));
 }
@@ -329,23 +383,28 @@ function renderRow3(current, prev){
   }).join("");
 }
 
+/* 캘린더상의 일~토 주 단위가 아니라, 마지막으로 채워진 날짜를 기준으로 항상 "최근 21일"을
+   3개의 7일 구간으로 나눠서 보여준다. 기준일이 바뀌면(예: 목요일 → 월요일) 7일씩 밀리기 때문에
+   아래 요일 라벨(일~토 고정이 아님)도 그에 맞춰 자동으로 회전한다. */
 function renderWeekChart(current, prev, opts){
-  const { canvasId, legendId, chartKey, valueFn } = opts;
-  const allDays = [...prev.days, ...current.days];
-  const byWeek = new Map();
-  allDays.forEach(d => {
-    const sunday = new Date(d.dateObj); sunday.setDate(sunday.getDate() - sunday.getDay());
-    const key = sunday.toDateString();
-    if (!byWeek.has(key)) byWeek.set(key, { start: sunday, values: Array(7).fill(null) });
-    byWeek.get(key).values[d.dateObj.getDay()] = valueFn(d);
-  });
-  const weeks = Array.from(byWeek.values()).sort((a, b) => a.start - b.start).slice(-3);
-  const labels = ["일", "월", "화", "수", "목", "금", "토"];
+  const { canvasId, legendId, chartKey, valueFn, formatter } = opts;
+  const fmt = formatter || fmtManwon;
+  const allDays = [...prev.days, ...current.days].sort((a, b) => a.dateObj - b.dateObj);
+  const refDay = current.days[current.days.length - 1] || allDays[allDays.length - 1];
+  if (!refDay) return;
+
+  const dateMap = new Map();
+  allDays.forEach(d => dateMap.set(d.dateObj.toDateString(), d));
+
+  const dayList = [];
+  for (let i = 20; i >= 0; i--) dayList.push(dayOffset(refDay.dateObj, -i));
+  const weeksDates = [dayList.slice(0, 7), dayList.slice(7, 14), dayList.slice(14, 21)];
+  const labels = weeksDates[0].map(dt => WEEKDAY_NAMES[dt.getDay()]);
 
   const legendEl = document.getElementById(legendId);
-  legendEl.innerHTML = weeks.map((w, i) => {
-    const end = new Date(w.start); end.setDate(end.getDate() + 6);
-    const txt = `${w.start.getMonth()+1}/${w.start.getDate()} ~ ${end.getMonth()+1}/${end.getDate()}`;
+  legendEl.innerHTML = weeksDates.map((wd, i) => {
+    const start = wd[0], end = wd[6];
+    const txt = `${start.getMonth()+1}/${start.getDate()} ~ ${end.getMonth()+1}/${end.getDate()}`;
     return `<span><i style="background:${WEEK_COLORS[i % WEEK_COLORS.length]}"></i>${txt}</span>`;
   }).join("");
 
@@ -360,12 +419,15 @@ function renderWeekChart(current, prev, opts){
     plugins: window.ChartDataLabels ? [window.ChartDataLabels] : [],
     data: {
       labels,
-      datasets: weeks.map((w, i) => ({
+      datasets: weeksDates.map((wd, i) => ({
         label: "",
-        data: w.values,
+        data: wd.map(dt => {
+          const rec = dateMap.get(dt.toDateString());
+          return rec ? valueFn(rec) : null;
+        }),
         borderColor: WEEK_COLORS[i % WEEK_COLORS.length],
         backgroundColor: WEEK_COLORS[i % WEEK_COLORS.length],
-        pointRadius: 4, borderWidth: i === weeks.length - 1 ? 6 : 2, tension: 0, spanGaps: true
+        pointRadius: 4, borderWidth: i === weeksDates.length - 1 ? 6 : 2, tension: 0, spanGaps: true
       }))
     },
     options: {
@@ -376,7 +438,7 @@ function renderWeekChart(current, prev, opts){
         tooltip: { mode: "index", intersect: false },
         datalabels: {
           display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null,
-          formatter: (value) => value === null ? "" : fmtManwon(value),
+          formatter: (value) => value === null ? "" : fmt(value),
           anchor: "end", align: "top", offset: 4,
           color: (ctx) => ctx.dataset.borderColor,
           font: { size: 10, weight: "600" }
@@ -391,14 +453,15 @@ function renderWeekChart(current, prev, opts){
 }
 
 function renderRow5(current, prev){
-  const y = current.days[current.days.length - 1];
+  const basisDays = getYesterdayBasisDays(current, prev);
+  if (!basisDays.length) { document.getElementById("row5").innerHTML = "<div class='card'>데이터 없음</div>"; return; }
   const map = buildDateMap(prev.days, current.days);
-  const weekAgo = y ? map.get(dayOffset(y.dateObj, -7).toDateString()) : null;
+  const suffix = yesterdayLabelSuffix(basisDays);
   const items = [["MK", PR.mk], ["PH", PR.ph], ["DW프로", PR.dwpro], ["DW플러스", PR.dwplus]];
   document.getElementById("row5").innerHTML = items.map(([label, key]) => {
-    const val = y ? (y.products[key] || 0) : 0;
-    const wVal = weekAgo ? (weekAgo.products[key] || 0) : null;
-    return card(`${label} 어제 판매수량`, fmtCount(val), deltaHtml(val, wVal, "전주대비", fmtCount));
+    const val = avgOfDays(basisDays, d => d.products[key] || 0);
+    const wVal = weekAgoAvgOfDays(basisDays, map, d => d.products[key] || 0);
+    return card(`${label} 어제 판매수량${suffix}`, fmtCount(val), deltaHtml(val, wVal, "전주대비", fmtCount));
   }).join("");
 }
 
@@ -590,6 +653,7 @@ async function loadAndRenderAll(){
   renderAllWeekCharts(current, prev);
   renderRow5(current, prev);
   renderRow6(current, prev);
+  renderProductTrendCharts(current, prev);
   renderRow7(current, prev);
 }
 
@@ -620,6 +684,7 @@ function init(){
     applyTheme(cur === "dark" ? "light" : "dark");
     if (CURRENT_DATA && PREV_DATA) {
       renderAllWeekCharts(CURRENT_DATA, PREV_DATA);
+      renderProductTrendCharts(CURRENT_DATA, PREV_DATA);
       renderRow7(CURRENT_DATA, PREV_DATA);
     }
   });
@@ -656,6 +721,26 @@ function renderAllWeekCharts(current, prev){
   renderWeekChart(current, prev, {
     canvasId: "weekChart2", legendId: "weekLegend2", chartKey: "__weekChart2",
     valueFn: d => (d.channels[CH.self] || 0) + (d.channels[CH.naver] || 0)
+  });
+}
+
+function renderProductTrendCharts(current, prev){
+  const countFmt = (v) => Math.round(v).toLocaleString("ko-KR") + "개";
+  renderWeekChart(current, prev, {
+    canvasId: "mkTrendChart", legendId: "mkTrendLegend", chartKey: "__mkTrendChart",
+    valueFn: d => d.products[PR.mk] || 0, formatter: countFmt
+  });
+  renderWeekChart(current, prev, {
+    canvasId: "phTrendChart", legendId: "phTrendLegend", chartKey: "__phTrendChart",
+    valueFn: d => d.products[PR.ph] || 0, formatter: countFmt
+  });
+  renderWeekChart(current, prev, {
+    canvasId: "dwproTrendChart", legendId: "dwproTrendLegend", chartKey: "__dwproTrendChart",
+    valueFn: d => d.products[PR.dwpro] || 0, formatter: countFmt
+  });
+  renderWeekChart(current, prev, {
+    canvasId: "dwplusTrendChart", legendId: "dwplusTrendLegend", chartKey: "__dwplusTrendChart",
+    valueFn: d => d.products[PR.dwplus] || 0, formatter: countFmt
   });
 }
 
