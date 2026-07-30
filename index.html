@@ -600,6 +600,7 @@ function initTokenClient(){
         return;
       }
       ACCESS_TOKEN = resp.access_token;
+      if (window.FBAuth) window.FBAuth.save(resp.access_token, resp.expires_in);
       await afterLogin();
     }
   });
@@ -620,13 +621,14 @@ function handleLoginClick(){
   const btn = document.getElementById("loginBtn");
   btn.disabled = true;
   btn.textContent = "로그인 중...";
-  TOKEN_CLIENT.requestAccessToken({ prompt: "consent" });
+  TOKEN_CLIENT.requestAccessToken({ prompt: "" });
 }
 
 function handleLogout(){
   if (ACCESS_TOKEN && window.google && window.google.accounts && window.google.accounts.oauth2) {
     google.accounts.oauth2.revoke(ACCESS_TOKEN, () => {});
   }
+  if (window.FBAuth) window.FBAuth.clear();
   ACCESS_TOKEN = null;
   CURRENT_DATA = null; PREV_DATA = null;
   showAuthGate();
@@ -668,9 +670,11 @@ async function afterLogin(){
     showDashboard();
   } catch (e) {
     ACCESS_TOKEN = null;
+    if (window.FBAuth) window.FBAuth.clear();
     btn.disabled = false;
     btn.textContent = "Google 계정으로 로그인";
     showAuthError(explainLoadError(e));
+    showAuthGate();
   }
 }
 
@@ -711,8 +715,14 @@ function init(){
     }
   });
 
-  showAuthGate();
   waitForGoogleIdentity();
+  const cachedToken = window.FBAuth ? window.FBAuth.get() : null;
+  if (cachedToken) {
+    ACCESS_TOKEN = cachedToken;
+    afterLogin();
+  } else {
+    showAuthGate();
+  }
 }
 
 function renderAllWeekCharts(current, prev){
