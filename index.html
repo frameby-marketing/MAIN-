@@ -543,6 +543,7 @@ function applyTheme(theme){
 let ACCESS_TOKEN = null;
 let TOKEN_CLIENT = null;
 let CURRENT_DATA = null, PREV_DATA = null;
+let SILENT_ATTEMPT_IN_PROGRESS = false; /* 사용자가 누른 게 아니라, 배경에서 조용히 재인증을 시도 중인지 여부 */
 
 function showAuthError(msg){
   const el = document.getElementById("authError");
@@ -593,16 +594,23 @@ function initTokenClient(){
     client_id: CONFIG.oauthClientId,
     scope: CONFIG.oauthScope,
     callback: async (resp) => {
+      const wasSilent = SILENT_ATTEMPT_IN_PROGRESS;
+      SILENT_ATTEMPT_IN_PROGRESS = false;
       if (resp.error) {
-        showAuthError("로그인이 취소되었거나 실패했습니다. 다시 시도해주세요.");
+        /* 배경에서 조용히 시도한 재인증이 실패한 경우엔 에러 문구 없이 그냥 로그인 화면만 보여준다.
+           사용자가 직접 로그인 버튼을 눌렀는데 실패한 경우에만 에러 메시지를 띄운다. */
+        if (!wasSilent) {
+          showAuthError("로그인이 취소되었거나 실패했습니다. 다시 시도해주세요.");
+        }
         const btn = document.getElementById("loginBtn");
         btn.disabled = false;
         btn.textContent = "Google 계정으로 로그인";
+        showAuthGate();
         return;
       }
       ACCESS_TOKEN = resp.access_token;
       if (window.FBAuth) window.FBAuth.save(resp.access_token, resp.expires_in);
-      await afterLogin();
+      await afterLogin(wasSilent);
     }
   });
   const btn = document.getElementById("loginBtn");
@@ -614,6 +622,25 @@ function initTokenClient(){
 function waitForGoogleIdentity(){
   if (initTokenClient()) return;
   const iv = setInterval(() => { if (initTokenClient()) clearInterval(iv); }, 200);
+}
+
+/* 브라우저에 이미 활성 구글 로그인 세션과 이전 동의 기록이 있으면, 화면에 아무것도 띄우지 않고
+   조용히 새 액세스 토큰을 받아온다(prompt:""). 실패하면(세션 없음/동의 철회 등) 조용히
+   로그인 화면으로 넘어간다 - 이게 실패해도 사용자에게는 에러로 보이지 않는다. */
+function attemptSilentLogin(){
+  if (!TOKEN_CLIENT) { showAuthGate(); return; }
+  const btn = document.getElementById("loginBtn");
+  btn.disabled = true;
+  btn.textContent = "자동 로그인 확인 중...";
+  SILENT_ATTEMPT_IN_PROGRESS = true;
+  TOKEN_CLIENT.requestAccessToken({ prompt: "" });
+}
+
+function waitForGoogleIdentityThenTrySilentLogin(){
+  if (initTokenClient()) { attemptSilentLogin(); return; }
+  const iv = setInterval(() => {
+    if (initTokenClient()) { clearInterval(iv); attemptSilentLogin(); }
+  }, 200);
 }
 
 function handleLoginClick(){
@@ -662,7 +689,7 @@ async function loadAndRenderAll(){
   renderRow7(current, prev);
 }
 
-async function afterLogin(){
+async function afterLogin(isRetryAfterSilent){
   const btn = document.getElementById("loginBtn");
   try {
     const userInfo = await fetchUserInfo(ACCESS_TOKEN);
@@ -672,6 +699,12 @@ async function afterLogin(){
   } catch (e) {
     ACCESS_TOKEN = null;
     if (window.FBAuth) window.FBAuth.clear();
+    /* 캐시된 토큰이 그냥 만료됐을 뿐일 수 있으니, 사용자에게 보여주기 전에 조용히 한 번 더
+       재인증을 시도한다. 그 재시도까지 실패했을 때만 실제로 로그인 화면/에러를 보여준다. */
+    if (!isRetryAfterSilent && e && e.status === 401 && TOKEN_CLIENT) {
+      attemptSilentLogin();
+      return;
+    }
     btn.disabled = false;
     btn.textContent = "Google 계정으로 로그인";
     showAuthError(explainLoadError(e));
@@ -716,13 +749,15 @@ function init(){
     }
   });
 
-  waitForGoogleIdentity();
   const cachedToken = window.FBAuth ? window.FBAuth.get() : null;
   if (cachedToken) {
+    waitForGoogleIdentity();
     ACCESS_TOKEN = cachedToken;
     afterLogin();
   } else {
-    showAuthGate();
+    /* 캐시된 토큰이 없어도, 이 브라우저에 구글 로그인이 살아있고 이전에 한 번 동의했다면
+       로그인 화면을 띄우기 전에 조용히 한 번 자동 로그인을 시도한다. */
+    waitForGoogleIdentityThenTrySilentLogin();
   }
 }
 
