@@ -28,16 +28,21 @@
   header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;margin-bottom:22px;}
   h1{font-size:20px;font-weight:700;margin:0 0 4px;}
   .sub{color:var(--sub);font-size:12.5px;}
-  .topbar-actions{display:flex;gap:8px;}
-  .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid var(--card-border);background:var(--card);color:var(--text);font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap;}
+  .topbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:999px;border:1px solid var(--card-border);background:var(--card);color:var(--text);font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap;}
   .btn:hover{border-color:var(--accent);}
   .btn:disabled{opacity:.55;cursor:default;}
   .btn.spinning{animation:none;}
   .btn.spinning .spin-icon{display:inline-block;animation:spin .8s linear infinite;}
   @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
-  .btn.wide{display:flex;justify-content:center;padding:12px;font-size:13.5px;}
-  .status{font-size:11.5px;padding:4px 10px;border-radius:20px;background:var(--track);color:var(--sub);margin-top:6px;display:inline-block;}
-  .status.live{color:var(--good);}
+  .btn.wide{display:flex;justify-content:center;padding:12px;font-size:13.5px;border-radius:8px;}
+  .seg-toggle{display:inline-flex;align-items:center;background:var(--track);border:1px solid var(--card-border);border-radius:999px;padding:3px;gap:2px;}
+  .seg-toggle button{display:inline-flex;align-items:center;gap:6px;border:none;background:transparent;color:var(--sub);padding:7px 14px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  .seg-toggle button.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;}
+  .status-pill{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:999px;border:1px solid var(--card-border);background:var(--card);color:var(--sub);font-size:12.5px;font-weight:600;white-space:nowrap;}
+  .status-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--sub);flex:none;}
+  .status-pill.live .dot{background:var(--good);box-shadow:0 0 0 3px rgba(62,207,142,.18);}
+  .status-pill.live{color:var(--good);}
   section{margin-bottom:16px;}
   .section-title{font-size:13px;font-weight:700;color:var(--sub);margin:26px 2px 10px;}
   .grid-1{display:grid;grid-template-columns:1fr;gap:14px;}
@@ -90,12 +95,15 @@
     <div>
       <h1>전체 플랫폼 매출 대시보드</h1>
       <div class="sub" id="periodLabel">Google 계정 로그인이 필요합니다</div>
-      <div class="status" id="statusBadge" style="display:none;"></div>
     </div>
     <div class="topbar-actions">
-      <a class="btn" id="sheetLink" href="#" target="_blank" rel="noopener">시트로 바로가기 ↗</a>
+      <div class="seg-toggle" id="themeSegToggle">
+        <button type="button" id="themeLightBtn" data-theme-opt="light">☀️ 일반모드</button>
+        <button type="button" id="themeDarkBtn" data-theme-opt="dark">🌙 다크모드</button>
+      </div>
+      <div class="status-pill" id="statusBadge" style="display:none;"><span class="dot"></span><span id="statusBadgeText"></span></div>
+      <a class="btn" id="sheetLink" href="#" target="_blank" rel="noopener">↗ 스프레드시트</a>
       <button class="btn" id="refreshBtn" style="display:none;"><span class="spin-icon">🔄</span> 새로고침</button>
-      <button class="btn" id="themeToggle">☀️ 라이트모드</button>
       <div class="auth-user" id="authUser" style="display:none;"></div>
       <button class="btn" id="logoutBtn" style="display:none;">로그아웃</button>
     </div>
@@ -520,10 +528,10 @@ function renderRow7(current, prev){
 
 function renderStatus(current, prev){
   const badge = document.getElementById("statusBadge");
-  badge.style.display = "inline-block";
+  badge.style.display = "inline-flex";
   const now = new Date();
   const stamp = `마지막 갱신 ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
-  badge.textContent = `구글 시트 라이브 연동됨 · ${stamp}`;
+  document.getElementById("statusBadgeText").textContent = `연결됨 · 자동갱신 (${stamp})`;
   badge.classList.add("live");
   const y = current.days[current.days.length - 1];
   document.getElementById("periodLabel").textContent = y
@@ -534,8 +542,8 @@ function renderStatus(current, prev){
 /* ================= THEME ================= */
 function applyTheme(theme){
   document.documentElement.setAttribute("data-theme", theme);
-  const btn = document.getElementById("themeToggle");
-  btn.textContent = theme === "dark" ? "☀️ 라이트모드" : "🌙 다크모드";
+  document.getElementById("themeLightBtn").classList.toggle("active", theme === "light");
+  document.getElementById("themeDarkBtn").classList.toggle("active", theme === "dark");
   localStorage.setItem("theme", theme);
 }
 
@@ -719,15 +727,17 @@ function init(){
 
   const saved = localStorage.getItem("theme") || "dark";
   applyTheme(saved);
-  document.getElementById("themeToggle").addEventListener("click", () => {
-    const cur = document.documentElement.getAttribute("data-theme");
-    applyTheme(cur === "dark" ? "light" : "dark");
+  function onThemeButtonClick(theme){
+    if (document.documentElement.getAttribute("data-theme") === theme) return;
+    applyTheme(theme);
     if (CURRENT_DATA && PREV_DATA) {
       renderAllWeekCharts(CURRENT_DATA, PREV_DATA);
       renderProductTrendCharts(CURRENT_DATA, PREV_DATA);
       renderRow7(CURRENT_DATA, PREV_DATA);
     }
-  });
+  }
+  document.getElementById("themeLightBtn").addEventListener("click", () => onThemeButtonClick("light"));
+  document.getElementById("themeDarkBtn").addEventListener("click", () => onThemeButtonClick("dark"));
 
   document.getElementById("loginBtn").addEventListener("click", handleLoginClick);
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);
