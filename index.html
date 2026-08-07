@@ -552,6 +552,7 @@ let ACCESS_TOKEN = null;
 let TOKEN_CLIENT = null;
 let CURRENT_DATA = null, PREV_DATA = null;
 let SILENT_ATTEMPT_IN_PROGRESS = false; /* 사용자가 누른 게 아니라, 배경에서 조용히 재인증을 시도 중인지 여부 */
+let SILENT_TIMEOUT_HANDLE = null; /* 사파리(특히 아이패드)에서 무음 로그인 콜백이 영영 안 오는 경우를 대비한 안전장치 */
 
 function showAuthError(msg){
   const el = document.getElementById("authError");
@@ -602,6 +603,7 @@ function initTokenClient(){
     client_id: CONFIG.oauthClientId,
     scope: CONFIG.oauthScope,
     callback: async (resp) => {
+      clearTimeout(SILENT_TIMEOUT_HANDLE);
       const wasSilent = SILENT_ATTEMPT_IN_PROGRESS;
       SILENT_ATTEMPT_IN_PROGRESS = false;
       if (resp.error) {
@@ -635,13 +637,35 @@ function waitForGoogleIdentity(){
 /* 브라우저에 이미 활성 구글 로그인 세션과 이전 동의 기록이 있으면, 화면에 아무것도 띄우지 않고
    조용히 새 액세스 토큰을 받아온다(prompt:""). 실패하면(세션 없음/동의 철회 등) 조용히
    로그인 화면으로 넘어간다 - 이게 실패해도 사용자에게는 에러로 보이지 않는다. */
+function fallBackToNormalLoginGate(){
+  /* 무음 로그인 시도가 끝내 응답이 없을 때(주로 사파리/아이패드의 서드파티 저장소 차단)
+     쓰는 조용한 폴백 - 에러 문구 없이 그냥 평소 로그인 화면으로 넘어간다. */
+  SILENT_ATTEMPT_IN_PROGRESS = false;
+  clearTimeout(SILENT_TIMEOUT_HANDLE);
+  const btn = document.getElementById("loginBtn");
+  btn.disabled = false;
+  btn.textContent = "Google 계정으로 로그인";
+  showAuthGate();
+}
+
 function attemptSilentLogin(){
   if (!TOKEN_CLIENT) { showAuthGate(); return; }
   const btn = document.getElementById("loginBtn");
   btn.disabled = true;
   btn.textContent = "자동 로그인 확인 중...";
   SILENT_ATTEMPT_IN_PROGRESS = true;
-  TOKEN_CLIENT.requestAccessToken({ prompt: "" });
+  clearTimeout(SILENT_TIMEOUT_HANDLE);
+  /* 사파리(특히 아이패드)는 서드파티 저장소/쿠키 접근을 막아서 무음 로그인 시도의 콜백
+     자체가 영영 오지 않는 경우가 있다. 일정 시간 안에 응답이 없으면 실패로 간주하고
+     "자동 로그인 확인 중..."에서 멈춰있지 않도록 로그인 화면으로 넘어간다. */
+  SILENT_TIMEOUT_HANDLE = setTimeout(() => {
+    if (SILENT_ATTEMPT_IN_PROGRESS) fallBackToNormalLoginGate();
+  }, 4000);
+  try {
+    TOKEN_CLIENT.requestAccessToken({ prompt: "" });
+  } catch (e) {
+    fallBackToNormalLoginGate();
+  }
 }
 
 function waitForGoogleIdentityThenTrySilentLogin(){
