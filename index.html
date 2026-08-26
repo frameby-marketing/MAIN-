@@ -87,6 +87,19 @@
   .auth-error{color:var(--bad);font-size:12.5px;margin-top:14px;line-height:1.6;}
   .auth-user{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--sub);}
   .auth-user img{width:22px;height:22px;border-radius:50%;}
+
+  .clickable{cursor:pointer;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease;}
+  .clickable:hover{transform:translateY(-1px);border-color:var(--accent);box-shadow:0 8px 28px rgba(0,0,0,.12);}
+  .click-hint{font-size:10.5px;color:var(--accent);margin-top:8px;font-weight:600;}
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:20px;z-index:9999;}
+  .modal-backdrop.open{display:flex;}
+  .modal-panel{width:min(900px,96vw);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--card-border);border-radius:18px;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.35);}
+  .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
+  .modal-title{font-size:18px;font-weight:800;line-height:1.35;}
+  .modal-sub{font-size:12px;color:var(--sub);margin-top:5px;line-height:1.5;}
+  .modal-close{border:1px solid var(--card-border);background:var(--track);color:var(--text);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:18px;flex:none;}
+  .modal-chart-wrap{height:430px;position:relative;}
+  @media(max-width:620px){.modal-panel{padding:16px}.modal-chart-wrap{height:360px}.modal-title{font-size:16px;}}
 </style>
 </head>
 <body>
@@ -121,13 +134,13 @@
 
   <div id="dashboardContent" style="display:none;">
   <div class="section-title">최근 3주 요일별 매출 추이 (전체 플랫폼 합산)</div>
-  <div class="chart-card">
+  <div class="chart-card clickable" id="weekTotalCard" title="클릭하여 7일 합산 비교 보기">
     <div class="legend" id="weekLegend"></div>
     <div class="chart-wrap" style="height:320px;"><canvas id="weekChart" role="img" aria-label="최근 3주간 요일별 매출 추이 선 차트, 전체 플랫폼 합산">최근 3주 요일별 매출 추이</canvas></div>
   </div>
 
   <div class="section-title">최근 3주 요일별 매출 추이 (자사몰+네이버 합산)</div>
-  <div class="chart-card">
+  <div class="chart-card clickable" id="weekSelfNaverCard" title="클릭하여 7일 합산 비교 보기">
     <div class="legend" id="weekLegend2"></div>
     <div class="chart-wrap" style="height:320px;"><canvas id="weekChart2" role="img" aria-label="최근 3주간 요일별 매출 추이 선 차트, 자사몰과 네이버 합산">최근 3주 요일별 매출 추이 (자사몰+네이버)</canvas></div>
   </div>
@@ -139,22 +152,22 @@
 
   <div class="section-title">제품별 판매수량 추이 (최근 3주)</div>
   <div class="grid-2" id="productTrendRow">
-    <div class="chart-card">
+    <div class="chart-card clickable" id="mkTrendCard" title="클릭하여 7일 합산 비교 보기">
       <div class="ttl">MK 판매수량 추이</div>
       <div class="legend" id="mkTrendLegend"></div>
       <div class="chart-wrap" style="height:220px;"><canvas id="mkTrendChart" role="img" aria-label="최근 3주간 MK 판매수량 추이">MK 판매수량 추이</canvas></div>
     </div>
-    <div class="chart-card">
+    <div class="chart-card clickable" id="phTrendCard" title="클릭하여 7일 합산 비교 보기">
       <div class="ttl">PH 판매수량 추이</div>
       <div class="legend" id="phTrendLegend"></div>
       <div class="chart-wrap" style="height:220px;"><canvas id="phTrendChart" role="img" aria-label="최근 3주간 PH 판매수량 추이">PH 판매수량 추이</canvas></div>
     </div>
-    <div class="chart-card">
+    <div class="chart-card clickable" id="dwproTrendCard" title="클릭하여 7일 합산 비교 보기">
       <div class="ttl">DW프로 판매수량 추이</div>
       <div class="legend" id="dwproTrendLegend"></div>
       <div class="chart-wrap" style="height:220px;"><canvas id="dwproTrendChart" role="img" aria-label="최근 3주간 DW프로 판매수량 추이">DW프로 판매수량 추이</canvas></div>
     </div>
-    <div class="chart-card">
+    <div class="chart-card clickable" id="dwplusTrendCard" title="클릭하여 7일 합산 비교 보기">
       <div class="ttl">DW플러스 판매수량 추이</div>
       <div class="legend" id="dwplusTrendLegend"></div>
       <div class="chart-wrap" style="height:220px;"><canvas id="dwplusTrendChart" role="img" aria-label="최근 3주간 DW플러스 판매수량 추이">DW플러스 판매수량 추이</canvas></div>
@@ -173,6 +186,17 @@
 
   <div class="section-title">채널 매출 비중 (이번달)</div>
   <div class="grid-3" id="row7"></div>
+
+
+  <div class="modal-backdrop" id="detailModal" aria-hidden="true">
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+      <div class="modal-head">
+        <div><div class="modal-title" id="detailModalTitle"></div><div class="modal-sub" id="detailModalSub"></div></div>
+        <button class="modal-close" id="detailModalClose" type="button" aria-label="닫기">×</button>
+      </div>
+      <div class="modal-chart-wrap"><canvas id="detailModalChart"></canvas></div>
+    </div>
+  </div>
 
   <footer>
     이 대시보드는 Google 로그인 후 초대된 계정에만 실제 데이터가 표시됩니다. 시트 자체는 비공개로 두셔도 됩니다.
@@ -193,6 +217,8 @@ const CONFIG = {
   /* 매달 새 시트가 생기면 여기만 갱신하세요. currentSheet가 이번달, prevSheet가 지난달입니다. */
   currentSheet: { name: "2026-08", range: "B228:L259", year: 2026, month: 8 },
   prevSheet:    { name: "2026-07", range: "B224:L265", year: 2026, month: 7 },
+  historyStartMonth: 1,
+  historyRange: "B:L",
   /* 구글 클라우드 콘솔에서 발급받은 OAuth 클라이언트 ID로 교체하세요. (설정 가이드 별도 전달) */
   oauthClientId: "691753741006-9i13kjkk3ci2jv6lr6rupa491j7rlb64.apps.googleusercontent.com",
   oauthScope: "https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
@@ -202,6 +228,8 @@ const PR = { mk: "MK", mc: "MC", dwpro: "DW프로", dwplus: "DW플러스", ph: "
 const PALETTE = ["#4c8dff", "#8b7bf0", "#3ecf8e", "#ffb648", "#ff5c6c", "#38bdf8"];
 const WEEK_COLORS = ["#ff5c6c", "#facc15", "#4c8dff"]; /* 오래된 주차부터: 빨강, 노랑, 파랑 */
 const WEEKDAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+let HISTORY_DATA = [];
+let DETAIL_CHART = null;
 
 /* ================= HELPERS ================= */
 function toNumber(v){
@@ -311,6 +339,31 @@ async function loadMonth(sheetConfig, accessToken){
   return { ...parsed, live: true, sheetConfig };
 }
 
+async function loadMonthAuto(year, month, accessToken){
+  const sheetConfig = { name: `${year}-${String(month).padStart(2,"0")}`, range: CONFIG.historyRange, year, month };
+  const values = await fetchSheetValues(sheetConfig, accessToken);
+  const headerIdx = values.findIndex(row => {
+    const cells = (row || []).map(v => String(v).trim().toUpperCase());
+    return cells.includes("일자") && cells.includes("TOTAL");
+  });
+  if (headerIdx < 0) throw new Error(`${sheetConfig.name} 시트에서 일자/TOTAL 헤더를 찾지 못했습니다.`);
+  const rows = valuesToRowObjects(values.slice(headerIdx));
+  const parsed = parseRows(rows, year, month);
+  return { ...parsed, live: true, sheetConfig };
+}
+
+async function loadHistory(accessToken){
+  const y = CONFIG.currentSheet.year, currentMonth = CONFIG.currentSheet.month;
+  const months = [];
+  for (let m = CONFIG.historyStartMonth; m <= currentMonth; m++) months.push(m);
+  const results = await Promise.all(months.map(async m => {
+    if (m === currentMonth && CURRENT_DATA) return CURRENT_DATA;
+    if (m === CONFIG.prevSheet.month && PREV_DATA) return PREV_DATA;
+    return loadMonthAuto(y, m, accessToken);
+  }));
+  return results.sort((a,b) => a.sheetConfig.month - b.sheetConfig.month);
+}
+
 function sumBy(days, fn){ return days.reduce((s, d) => s + fn(d), 0); }
 function avgBy(days, fn){ return days.length ? sumBy(days, fn) / days.length : 0; }
 function channelAvg(days, key){ return avgBy(days, d => d.channels[key] || 0); }
@@ -352,8 +405,11 @@ function weekAgoAvgOfDays(basisDays, map, fn){
 function yesterdayLabelSuffix(basisDays){ return basisDays.length > 1 ? '<br><span class="basis-note">(지난 금·토·일 평균)</span>' : ""; }
 
 /* ================= RENDER ================= */
-function card(label, valueHtml, deltasHtml){
-  return `<div class="card"><div class="card-label">${label}</div><div class="card-value">${valueHtml}</div>${deltasHtml}</div>`;
+function card(label, valueHtml, deltasHtml, clickKey=""){
+  const cls = clickKey ? "card clickable" : "card";
+  const attr = clickKey ? ` data-detail="${clickKey}" title="클릭하여 상세 비교 보기"` : "";
+  const hint = clickKey ? `<div class="click-hint">상세 비교 보기 →</div>` : "";
+  return `<div class="${cls}"${attr}><div class="card-label">${label}</div><div class="card-value">${valueHtml}</div>${deltasHtml}${hint}</div>`;
 }
 
 function renderRow1(current, prev){
@@ -374,10 +430,10 @@ function renderRow1(current, prev){
   const prevTotal = sumBy(prev.days, d => d.total);
 
   document.getElementById("row1").innerHTML =
-    card(`어제 총 매출금액${suffix}`, fmtManwon(yTotal), deltaHtml(yTotal, yTotalWeekAgo, "전주대비", fmtManwon)) +
-    card(`어제 자사몰+네이버 매출금액${suffix}`, fmtManwon(selfNaverY), deltaHtml(selfNaverY, selfNaverW, "전주대비", fmtManwon)) +
-    card("이번달 일평균 총 매출", fmtManwon(mtdAvg), deltaHtml(mtdAvg, prevAvg, "전월대비", fmtManwon)) +
-    card("현재 평균 지속시 예상 총 매출액", fmtEokwon(projected), deltaHtml(projected, prevTotal, "전월대비", fmtEokwon));
+    card(`어제 총 매출금액${suffix}`, fmtManwon(yTotal), deltaHtml(yTotal, yTotalWeekAgo, "전주대비", fmtManwon), "yTotal") +
+    card(`어제 자사몰+네이버 매출금액${suffix}`, fmtManwon(selfNaverY), deltaHtml(selfNaverY, selfNaverW, "전주대비", fmtManwon), "ySelfNaver") +
+    card("이번달 일평균 총 매출", fmtManwon(mtdAvg), deltaHtml(mtdAvg, prevAvg, "전월대비", fmtManwon), "mtdAvgTotal") +
+    card("현재 평균 지속시 예상 총 매출액", fmtEokwon(projected), deltaHtml(projected, prevTotal, "전월대비", fmtEokwon), "projectedTotal");
 }
 
 function renderRow3(current, prev){
@@ -390,7 +446,7 @@ function renderRow3(current, prev){
   document.getElementById("row3").innerHTML = items.map(([label, key]) => {
     const cur = channelAvg(current.days, key);
     const prv = channelAvg(prev.days, key);
-    return card(label, fmtManwon(cur), deltaHtml(cur, prv, "전월대비", fmtManwon));
+    return card(label, fmtManwon(cur), deltaHtml(cur, prv, "전월대비", fmtManwon), "channelAvg:" + key);
   }).join("");
 }
 
@@ -472,7 +528,7 @@ function renderRow5(current, prev){
   document.getElementById("row5").innerHTML = items.map(([label, key]) => {
     const val = avgOfDays(basisDays, d => d.products[key] || 0);
     const wVal = weekAgoAvgOfDays(basisDays, map, d => d.products[key] || 0);
-    return card(`${label} 어제 판매수량${suffix}`, fmtCount(val), deltaHtml(val, wVal, "전주대비", fmtCount));
+    return card(`${label} 어제 판매수량${suffix}`, fmtCount(val), deltaHtml(val, wVal, "전주대비", fmtCount), "productYesterday:" + key);
   }).join("");
 }
 
@@ -481,11 +537,11 @@ function renderRow6(current, prev){
   document.getElementById("row6").innerHTML = items.map(([label, key]) => {
     const cur = productAvg(current.days, key);
     const prv = productAvg(prev.days, key);
-    return card(`${label} 이번달 일평균 판매수량`, fmtCountAvg(cur), deltaHtml(cur, prv, "전달대비", fmtCountAvg));
+    return card(`${label} 이번달 일평균 판매수량`, fmtCountAvg(cur), deltaHtml(cur, prv, "전달대비", fmtCountAvg), "productMonthAvg:" + key);
   }).join("");
 }
 
-function donutCard(label, curRatio, prevRatio){
+function donutCard(label, curRatio, prevRatio, detailKey){
   const pctText = (curRatio * 100).toFixed(1) + "%";
   const style = getComputedStyle(document.documentElement);
   const accent = style.getPropertyValue("--accent").trim() || "#4c8dff";
@@ -495,7 +551,7 @@ function donutCard(label, curRatio, prevRatio){
   const up = deltaPP >= 0;
   const deltaTxt = `<div class="delta ${up ? "up" : "down"}">${up ? "▲" : "▼"} 전월대비 ${Math.abs(deltaPP * 100).toFixed(1)}%p</div>`;
   return {
-    html: `<div class="card donut-card">
+    html: `<div class="card donut-card clickable" data-detail="${detailKey}" title="클릭하여 월별 매출 비중 추이 보기">
       <div class="donut-wrap"><canvas id="${id}"></canvas><div class="donut-label"><span class="pct">${pctText}</span><span class="nm">${label}</span></div></div>
       ${deltaTxt}
     </div>`,
@@ -512,9 +568,9 @@ function renderRow7(current, prev){
   const prevMmall = channelSum(prev.days, CH.mmall) / (sumBy(prev.days, d => d.total) || 1);
 
   const defs = [
-    donutCard("자사몰+네이버", curSelfNaver, prevSelfNaver),
-    donutCard("쿠팡", curCoupang, prevCoupang),
-    donutCard("M몰", curMmall, prevMmall)
+    donutCard("자사몰+네이버", curSelfNaver, prevSelfNaver, "share:selfNaver"),
+    donutCard("쿠팡", curCoupang, prevCoupang, "share:coupang"),
+    donutCard("M몰", curMmall, prevMmall, "share:mmall")
   ];
   document.getElementById("row7").innerHTML = defs.map(d => d.html).join("");
   defs.forEach(d => {
@@ -524,6 +580,107 @@ function renderRow7(current, prev){
       options: { responsive: true, maintainAspectRatio: false, cutout: "72%", plugins: { legend: { display: false }, tooltip: { enabled: false } } }
     });
   });
+}
+
+function getHistoryBeforeCurrent(){
+  return HISTORY_DATA.filter(m => m.sheetConfig.month < CONFIG.currentSheet.month);
+}
+function monthLabel(m){ return `${m.sheetConfig.month}월`; }
+function historyMetricValues(fn, includeCurrent=true){
+  const src = includeCurrent ? HISTORY_DATA : getHistoryBeforeCurrent();
+  return { labels: src.map(monthLabel), values: src.map(fn) };
+}
+function threeWeekSums(valueFn){
+  const allDays = [...(PREV_DATA?.days || []), ...(CURRENT_DATA?.days || [])].sort((a,b)=>a.dateObj-b.dateObj);
+  const refDay = CURRENT_DATA?.days?.[CURRENT_DATA.days.length-1] || allDays[allDays.length-1];
+  if (!refDay) return {labels:[], values:[]};
+  const map = new Map(allDays.map(d => [d.dateObj.toDateString(), d]));
+  const dayList=[]; for(let i=20;i>=0;i--) dayList.push(dayOffset(refDay.dateObj,-i));
+  const weeks=[dayList.slice(0,7),dayList.slice(7,14),dayList.slice(14,21)];
+  return {
+    labels:["전전주차","전주차","이번주차"],
+    values:weeks.map(w=>w.reduce((sum,dt)=>{const r=map.get(dt.toDateString()); return sum+(r?valueFn(r):0);},0)),
+    colors:WEEK_COLORS
+  };
+}
+function openDetailModal({title, sub="", labels, values, type="bar", formatter=fmtManwon, colors=null, percent=false}){
+  const modal=document.getElementById("detailModal");
+  document.getElementById("detailModalTitle").textContent=title;
+  document.getElementById("detailModalSub").textContent=sub;
+  if(DETAIL_CHART) DETAIL_CHART.destroy();
+  const style=getComputedStyle(document.documentElement);
+  const text=style.getPropertyValue("--text").trim()||"#e8eaed";
+  const muted=style.getPropertyValue("--sub").trim()||"#9aa1ac";
+  const grid=style.getPropertyValue("--grid").trim()||"#242832";
+  const accent=style.getPropertyValue("--accent").trim()||"#4c8dff";
+  const bgColors=colors || labels.map((_,i)=> i===labels.length-1 ? accent : "rgba(154,161,172,.55)");
+  DETAIL_CHART=new Chart(document.getElementById("detailModalChart"),{
+    type,
+    plugins:window.ChartDataLabels?[window.ChartDataLabels]:[],
+    data:{labels,datasets:[{data:values,backgroundColor:type==="bar"?bgColors:accent,borderColor:type==="line"?accent:bgColors,borderWidth:type==="line"?3:0,pointRadius:type==="line"?4:0,tension:.25}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>formatter(ctx.raw)}},datalabels:{formatter:(v)=>formatter(v),anchor:"end",align:"top",offset:4,color:text,font:{size:11,weight:"700"}}},scales:{x:{grid:{display:false},ticks:{color:text,font:{size:12,weight:"600"}}},y:{beginAtZero:true,grid:{color:grid},ticks:{color:muted,callback:(v)=> percent ? v+"%" : undefined}}}}
+  });
+  modal.classList.add("open"); modal.setAttribute("aria-hidden","false");
+}
+function closeDetailModal(){
+  const modal=document.getElementById("detailModal");
+  modal.classList.remove("open"); modal.setAttribute("aria-hidden","true");
+}
+function showDetail(key){
+  const hist=getHistoryBeforeCurrent();
+  const basis=getYesterdayBasisDays(CURRENT_DATA,PREV_DATA);
+  if(key==="weekTotal"){const d=threeWeekSums(x=>x.total); return openDetailModal({title:"최근 3주 7일 합산 총매출 비교",sub:"전전주차 · 전주차 · 이번주차 각 7일 합산",...d,formatter:fmtManwon});}
+  if(key==="weekSelfNaver"){const d=threeWeekSums(x=>(x.channels[CH.self]||0)+(x.channels[CH.naver]||0)); return openDetailModal({title:"최근 3주 7일 합산 자사몰+네이버 매출 비교",sub:"전전주차 · 전주차 · 이번주차 각 7일 합산",...d,formatter:fmtManwon});}
+  if(key.startsWith("weekProduct:")){const p=key.split(":")[1], d=threeWeekSums(x=>x.products[p]||0); return openDetailModal({title:`${p} 최근 3주 7일 합산 판매수량 비교`,sub:"전전주차 · 전주차 · 이번주차 각 7일 합산",...d,formatter:fmtCount});}
+  if(key==="yTotal"){
+    const labels=hist.map(monthLabel).concat(["어제"]), values=hist.map(m=>avgBy(m.days,d=>d.total)).concat([avgOfDays(basis,d=>d.total)]);
+    return openDetailModal({title:"어제 총 매출 vs 월별 일평균 총매출",sub:"1월부터 직전월까지의 확정 일평균과 현재 어제 기준 비교",labels,values,formatter:fmtManwon});
+  }
+  if(key==="ySelfNaver"){
+    const fn=d=>(d.channels[CH.self]||0)+(d.channels[CH.naver]||0); const labels=hist.map(monthLabel).concat(["어제"]), values=hist.map(m=>avgBy(m.days,fn)).concat([avgOfDays(basis,fn)]);
+    return openDetailModal({title:"어제 자사몰+네이버 매출 vs 월별 일평균",sub:"1월부터 직전월까지의 확정 일평균과 현재 어제 기준 비교",labels,values,formatter:fmtManwon});
+  }
+  if(key==="mtdAvgTotal"){
+    const src=HISTORY_DATA, labels=src.map(monthLabel), values=src.map(m=>avgBy(m.days,d=>d.total));
+    return openDetailModal({title:"월별 일평균 총매출 비교",sub:"1월부터 현재월까지 · 현재월은 현재까지 입력된 일자의 평균",labels,values,formatter:fmtManwon});
+  }
+  if(key==="projectedTotal"){
+    const labels=hist.map(monthLabel).concat([`${CONFIG.currentSheet.month}월 예상`]);
+    const currentAvg=avgBy(CURRENT_DATA.days,d=>d.total), projected=currentAvg*daysInMonth(CONFIG.currentSheet.year,CONFIG.currentSheet.month);
+    const values=hist.map(m=>sumBy(m.days,d=>d.total)).concat([projected]);
+    return openDetailModal({title:"월별 총매출 비교",sub:"이전 달은 확정 총매출 · 현재월은 현재 일평균 지속 시 예상 총매출",labels,values,formatter:fmtEokwon});
+  }
+  if(key.startsWith("channelAvg:")){
+    const ch=key.slice("channelAvg:".length), src=HISTORY_DATA, labels=src.map(monthLabel), values=src.map(m=>channelAvg(m.days,ch));
+    return openDetailModal({title:`${ch} 월별 일평균 매출`,sub:"1월부터 현재월까지 · 현재월은 현재까지 입력된 일자의 평균",labels,values,formatter:fmtManwon});
+  }
+  if(key.startsWith("productYesterday:")){
+    const p=key.slice("productYesterday:".length), labels=hist.map(monthLabel).concat(["어제"]), values=hist.map(m=>productAvg(m.days,p)).concat([avgOfDays(basis,d=>d.products[p]||0)]);
+    return openDetailModal({title:`${p} 어제 판매수량 vs 월별 일평균`,sub:"1월부터 직전월까지의 일평균 판매수량과 어제 기준 비교",labels,values,formatter:fmtCountAvg});
+  }
+  if(key.startsWith("productMonthAvg:")){
+    const p=key.slice("productMonthAvg:".length), src=HISTORY_DATA, labels=src.map(monthLabel), values=src.map(m=>productAvg(m.days,p));
+    return openDetailModal({title:`${p} 월별 일평균 판매수량`,sub:"1월부터 현재월까지 · 현재월은 현재까지 입력된 일자의 평균",labels,values,formatter:fmtCountAvg});
+  }
+  if(key.startsWith("share:")){
+    const which=key.slice(6), src=HISTORY_DATA, labels=src.map(monthLabel), values=src.map(m=>{
+      const total=sumBy(m.days,d=>d.total)||1;
+      if(which==="selfNaver") return ((channelSum(m.days,CH.self)+channelSum(m.days,CH.naver))/total)*100;
+      if(which==="coupang") return (channelSum(m.days,CH.coupang)/total)*100;
+      return (channelSum(m.days,CH.mmall)/total)*100;
+    });
+    const title=which==="selfNaver"?"자사몰+네이버":which==="coupang"?"쿠팡":"M몰";
+    return openDetailModal({title:`${title} 월별 매출 비중`,sub:"1월부터 현재월까지의 채널 매출 비중",labels,values,type:"line",formatter:v=>v.toFixed(1)+"%",percent:true});
+  }
+}
+function bindDetailInteractions(){
+  document.getElementById("weekTotalCard").onclick=()=>showDetail("weekTotal");
+  document.getElementById("weekSelfNaverCard").onclick=()=>showDetail("weekSelfNaver");
+  document.getElementById("mkTrendCard").onclick=()=>showDetail("weekProduct:"+PR.mk);
+  document.getElementById("phTrendCard").onclick=()=>showDetail("weekProduct:"+PR.ph);
+  document.getElementById("dwproTrendCard").onclick=()=>showDetail("weekProduct:"+PR.dwpro);
+  document.getElementById("dwplusTrendCard").onclick=()=>showDetail("weekProduct:"+PR.dwplus);
+  document.querySelectorAll("[data-detail]").forEach(el=>el.onclick=()=>showDetail(el.dataset.detail));
 }
 
 function renderStatus(current, prev){
@@ -710,6 +867,7 @@ async function loadAndRenderAll(){
     loadMonth(CONFIG.prevSheet, ACCESS_TOKEN)
   ]);
   CURRENT_DATA = current; PREV_DATA = prev;
+  HISTORY_DATA = await loadHistory(ACCESS_TOKEN);
 
   renderStatus(current, prev);
   renderRow1(current, prev);
@@ -719,6 +877,7 @@ async function loadAndRenderAll(){
   renderRow6(current, prev);
   renderProductTrendCharts(current, prev);
   renderRow7(current, prev);
+  bindDetailInteractions();
 }
 
 async function afterLogin(isRetryAfterSilent){
@@ -765,6 +924,9 @@ function init(){
 
   document.getElementById("loginBtn").addEventListener("click", handleLoginClick);
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);
+  document.getElementById("detailModalClose").addEventListener("click", closeDetailModal);
+  document.getElementById("detailModal").addEventListener("click", e => { if(e.target.id === "detailModal") closeDetailModal(); });
+  document.addEventListener("keydown", e => { if(e.key === "Escape") closeDetailModal(); });
 
   const refreshBtn = document.getElementById("refreshBtn");
   refreshBtn.addEventListener("click", async () => {
