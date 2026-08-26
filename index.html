@@ -827,7 +827,7 @@ function openDetailModal({title, sub="", labels, values, type="bar", formatter=f
       {data:values,backgroundColor:type==="bar"?bgColors:accent,borderColor:type==="line"?accent:bgColors,borderWidth:type==="line"?3:0,pointRadius:type==="line"?4:0,tension:.25,datalabels:{display:true}},
       ...(showAverage?[{type:"line",label:`평균 ${formatter(averageOfFinite(values))}`,data:labels.map(()=>averageOfFinite(values)),borderColor:"#ffb648",backgroundColor:"#ffb648",borderWidth:2,borderDash:[7,5],pointRadius:0,tension:0,datalabels:{display:(ctx)=>ctx.dataIndex===labels.length-1,formatter:()=>`평균 ${formatter(averageOfFinite(values))}`,anchor:"end",align:"top",offset:4,color:"#ffb648",font:{size:13,weight:"800"}}}]:[])
     ]},
-    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:38}},plugins:{legend:{display:showAverage,labels:{color:text,filter:(item)=>item.datasetIndex>0}},tooltip:{callbacks:{label:(ctx)=>formatter(ctx.raw)}},datalabels:{formatter:(v)=>formatter(v),anchor:"end",align:"top",offset:5,clamp:true,clip:false,color:text,font:{size:15,weight:"800"}}},scales:{x:{grid:{display:false},ticks:{color:text,font:(ctx)=>{
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:38}},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>formatter(ctx.raw)}},datalabels:{formatter:(v)=>formatter(v),anchor:"end",align:"top",offset:5,clamp:true,clip:false,color:text,font:{size:15,weight:"800"}}},scales:{x:{grid:{display:false},ticks:{color:text,font:(ctx)=>{
       if(!periodLabels) return {size:11,weight:"700"};
       const chartW=(ctx.chart&&ctx.chart.width)||720;
       const count=Math.max(labels.length,1);
