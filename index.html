@@ -93,7 +93,7 @@
   .click-hint{font-size:10.5px;color:var(--accent);margin-top:8px;font-weight:600;}
   .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:20px;z-index:9999;}
   .modal-backdrop.open{display:flex;}
-  .modal-panel{width:min(900px,96vw);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--card-border);border-radius:18px;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.35);}
+  .modal-panel{width:min(980px,96vw);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--card-border);border-radius:18px;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.35);}
   .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
   .modal-title{font-size:18px;font-weight:800;line-height:1.35;}
   .modal-sub{font-size:12px;color:var(--sub);margin-top:5px;line-height:1.5;}
@@ -273,6 +273,18 @@ function deltaHtml(curVal, prevVal, label, formatter, opts={}){
   return `<div class="delta ${cls}">${arrow} ${label} ${num}</div>${bars}`;
 }
 
+function normalizeProductName(name){
+  return String(name || "").toUpperCase().replace(/[\s_\-–—·.()]/g, "");
+}
+function canonicalProductKey(name){
+  const n = normalizeProductName(name);
+  if (n === "MK" || n.includes("킥프레임") || n.includes("KICKFRAME")) return PR.mk;
+  if (n === "PH" || n.includes("PHSTAND") || n.startsWith("PH")) return PR.ph;
+  if (n === "DW프로" || n === "DWPRO" || n.includes("DWSTANDPRO") || n.includes("DWPRO")) return PR.dwpro;
+  if (n === "DW플러스" || n === "DWPLUS" || n.includes("DWSTANDPLUS") || n.includes("DWPLUS")) return PR.dwplus;
+  return name;
+}
+
 function parseRows(rows, year, month){
   if (!rows || !rows.length) return { days: [], channelKeys: [], productKeys: [] };
   const headers = Object.keys(rows[0]);
@@ -297,7 +309,12 @@ function parseRows(rows, year, month){
     const channels = {}; let total = 0;
     channelKeys.forEach(k => { const v = toNumber(r[k]); channels[k] = v; total += v; });
     const products = {};
-    productKeys.forEach(k => { products[k] = toNumber(r[k]); });
+    productKeys.forEach(k => {
+      const v = toNumber(r[k]);
+      products[k] = v;
+      const canonical = canonicalProductKey(k);
+      if (canonical !== k) products[canonical] = (products[canonical] || 0) + v;
+    });
     days.push({ dateObj, raw, channels, total, products });
   }
   days.sort((a, b) => a.dateObj - b.dateObj);
@@ -597,8 +614,12 @@ function threeWeekSums(valueFn){
   const map = new Map(allDays.map(d => [d.dateObj.toDateString(), d]));
   const dayList=[]; for(let i=20;i>=0;i--) dayList.push(dayOffset(refDay.dateObj,-i));
   const weeks=[dayList.slice(0,7),dayList.slice(7,14),dayList.slice(14,21)];
+  const rangeLabel = (w) => {
+    const a=w[0], b=w[6];
+    return `${a.getMonth()+1}/${a.getDate()}(${WEEKDAY_NAMES[a.getDay()]}) ~ ${b.getMonth()+1}/${b.getDate()}(${WEEKDAY_NAMES[b.getDay()]})`;
+  };
   return {
-    labels:["전전주차","전주차","이번주차"],
+    labels:weeks.map(rangeLabel),
     values:weeks.map(w=>w.reduce((sum,dt)=>{const r=map.get(dt.toDateString()); return sum+(r?valueFn(r):0);},0)),
     colors:WEEK_COLORS
   };
@@ -618,7 +639,7 @@ function openDetailModal({title, sub="", labels, values, type="bar", formatter=f
     type,
     plugins:window.ChartDataLabels?[window.ChartDataLabels]:[],
     data:{labels,datasets:[{data:values,backgroundColor:type==="bar"?bgColors:accent,borderColor:type==="line"?accent:bgColors,borderWidth:type==="line"?3:0,pointRadius:type==="line"?4:0,tension:.25}]},
-    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>formatter(ctx.raw)}},datalabels:{formatter:(v)=>formatter(v),anchor:"end",align:"top",offset:4,color:text,font:{size:11,weight:"700"}}},scales:{x:{grid:{display:false},ticks:{color:text,font:{size:12,weight:"600"}}},y:{beginAtZero:true,grid:{color:grid},ticks:{color:muted,callback:(v)=> percent ? v+"%" : undefined}}}}
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:38}},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>formatter(ctx.raw)}},datalabels:{formatter:(v)=>formatter(v),anchor:"end",align:"top",offset:5,clamp:true,clip:false,color:text,font:{size:15,weight:"800"}}},scales:{x:{grid:{display:false},ticks:{color:text,font:{size:11,weight:"700"},maxRotation:0,minRotation:0,autoSkip:false}},y:{beginAtZero:true,grid:{color:grid},ticks:{color:muted,callback:(v)=> percent ? v+"%" : undefined}}}}
   });
   modal.classList.add("open"); modal.setAttribute("aria-hidden","false");
 }
@@ -629,9 +650,9 @@ function closeDetailModal(){
 function showDetail(key){
   const hist=getHistoryBeforeCurrent();
   const basis=getYesterdayBasisDays(CURRENT_DATA,PREV_DATA);
-  if(key==="weekTotal"){const d=threeWeekSums(x=>x.total); return openDetailModal({title:"최근 3주 7일 합산 총매출 비교",sub:"전전주차 · 전주차 · 이번주차 각 7일 합산",...d,formatter:fmtManwon});}
-  if(key==="weekSelfNaver"){const d=threeWeekSums(x=>(x.channels[CH.self]||0)+(x.channels[CH.naver]||0)); return openDetailModal({title:"최근 3주 7일 합산 자사몰+네이버 매출 비교",sub:"전전주차 · 전주차 · 이번주차 각 7일 합산",...d,formatter:fmtManwon});}
-  if(key.startsWith("weekProduct:")){const p=key.split(":")[1], d=threeWeekSums(x=>x.products[p]||0); return openDetailModal({title:`${p} 최근 3주 7일 합산 판매수량 비교`,sub:"전전주차 · 전주차 · 이번주차 각 7일 합산",...d,formatter:fmtCount});}
+  if(key==="weekTotal"){const d=threeWeekSums(x=>x.total); return openDetailModal({title:"최근 3주 7일 합산 총매출 비교",sub:"각 막대는 표시된 날짜 범위 7일 합산",...d,formatter:fmtManwon});}
+  if(key==="weekSelfNaver"){const d=threeWeekSums(x=>(x.channels[CH.self]||0)+(x.channels[CH.naver]||0)); return openDetailModal({title:"최근 3주 7일 합산 자사몰+네이버 매출 비교",sub:"각 막대는 표시된 날짜 범위 7일 합산",...d,formatter:fmtManwon});}
+  if(key.startsWith("weekProduct:")){const p=key.split(":")[1], d=threeWeekSums(x=>x.products[p]||0); return openDetailModal({title:`${p} 최근 3주 7일 합산 판매수량 비교`,sub:"각 막대는 표시된 날짜 범위 7일 합산",...d,formatter:fmtCount});}
   if(key==="yTotal"){
     const labels=hist.map(monthLabel).concat(["어제"]), values=hist.map(m=>avgBy(m.days,d=>d.total)).concat([avgOfDays(basis,d=>d.total)]);
     return openDetailModal({title:"어제 총 매출 vs 월별 일평균 총매출",sub:"1월부터 직전월까지의 확정 일평균과 현재 어제 기준 비교",labels,values,formatter:fmtManwon});
