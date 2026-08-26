@@ -93,7 +93,7 @@
   .click-hint{font-size:10.5px;color:var(--accent);margin-top:8px;font-weight:600;}
   .modal-backdrop{position:fixed;top:0;right:0;bottom:0;left:var(--modal-left-inset,0px);background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:20px;z-index:9999;transition:left .18s ease;}
   .modal-backdrop.open{display:flex;}
-  .modal-panel{width:min(980px,96vw);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--card-border);border-radius:18px;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.35);}
+  .modal-panel{width:min(980px,calc(100% - 40px));max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--card-border);border-radius:18px;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.35);}
   .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
   .modal-title{font-size:18px;font-weight:800;line-height:1.35;}
   .modal-sub{font-size:12px;color:var(--sub);margin-top:5px;line-height:1.5;}
@@ -628,19 +628,36 @@ function getVisibleLeftNavigatorInset(){
   const vw=window.innerWidth, vh=window.innerHeight;
   let inset=0;
   const modal=document.getElementById("detailModal");
-  const nodes=document.querySelectorAll("body *");
-  for(const el of nodes){
-    if(el===modal || (modal && modal.contains(el))) continue;
+
+  const consider=(el)=>{
+    if(!el || el===modal || (modal && modal.contains(el))) return;
     const cs=getComputedStyle(el);
-    if(cs.display==="none" || cs.visibility==="hidden" || Number(cs.opacity)===0) continue;
-    if(cs.position!=="fixed" && cs.position!=="sticky") continue;
+    if(cs.display==="none" || cs.visibility==="hidden" || Number(cs.opacity)===0) return;
     const r=el.getBoundingClientRect();
-    // 좌측에 실제로 펼쳐진 세로형 네비게이터만 감지한다.
-    if(r.left>-2 || r.right<=0) continue;
-    if(r.width<120 || r.width>Math.min(460,vw*0.46)) continue;
-    if(r.height<vh*0.55) continue;
-    if(r.right>0 && r.right<vw*0.48) inset=Math.max(inset,Math.round(r.right));
+    // 화면 왼쪽 가장자리에서 시작하고, 충분히 높고 넓은 고정/스티키 패널만 후보로 본다.
+    const positioned = cs.position==="fixed" || cs.position==="sticky" || cs.position==="absolute";
+    if(!positioned) return;
+    if(r.right<=0 || r.left>8) return;
+    if(r.width<90 || r.width>Math.min(520,vw*0.55)) return;
+    if(r.height<vh*0.45) return;
+    if(r.right>0 && r.right<vw*0.62) inset=Math.max(inset,Math.round(r.right));
+  };
+
+  // 1) DOM 전체에서 후보 탐색
+  document.querySelectorAll("body *").forEach(consider);
+
+  // 2) 실제 화면 좌측 여러 지점에서 최상단 요소를 직접 샘플링해 외부 nav.js가 만든 패널도 잡는다.
+  const ys=[Math.round(vh*0.15),Math.round(vh*0.35),Math.round(vh*0.55),Math.round(vh*0.75)];
+  const xs=[1,4,8,16,32,64,96,128,160,200,240,280,320];
+  for(const y of ys){
+    for(const x of xs){
+      if(x>=vw) continue;
+      let el=document.elementFromPoint(x,y);
+      let depth=0;
+      while(el && el!==document.body && depth<6){ consider(el); el=el.parentElement; depth++; }
+    }
   }
+
   return inset;
 }
 function syncDetailModalViewport(){
@@ -654,7 +671,7 @@ window.addEventListener("resize",()=>{
   if(modal && modal.classList.contains("open")) syncDetailModalViewport();
 });
 
-function openDetailModal({title, sub="", labels, values, type="bar", formatter=fmtManwon, colors=null, percent=false}){
+function openDetailModal({title, sub="", labels, values, type="bar", formatter=fmtManwon, colors=null, percent=false, periodLabels=false}){
   const modal=document.getElementById("detailModal");
   syncDetailModalViewport();
   document.getElementById("detailModalTitle").textContent=title;
@@ -670,7 +687,15 @@ function openDetailModal({title, sub="", labels, values, type="bar", formatter=f
     type,
     plugins:window.ChartDataLabels?[window.ChartDataLabels]:[],
     data:{labels,datasets:[{data:values,backgroundColor:type==="bar"?bgColors:accent,borderColor:type==="line"?accent:bgColors,borderWidth:type==="line"?3:0,pointRadius:type==="line"?4:0,tension:.25}]},
-    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:38}},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>formatter(ctx.raw)}},datalabels:{formatter:(v)=>formatter(v),anchor:"end",align:"top",offset:5,clamp:true,clip:false,color:text,font:{size:15,weight:"800"}}},scales:{x:{grid:{display:false},ticks:{color:text,font:{size:11,weight:"700"},maxRotation:0,minRotation:0,autoSkip:false}},y:{beginAtZero:true,grid:{color:grid},ticks:{color:muted,callback:(v)=> percent ? v+"%" : undefined}}}}
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:38}},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>formatter(ctx.raw)}},datalabels:{formatter:(v)=>formatter(v),anchor:"end",align:"top",offset:5,clamp:true,clip:false,color:text,font:{size:15,weight:"800"}}},scales:{x:{grid:{display:false},ticks:{color:text,font:(ctx)=>{
+      if(!periodLabels) return {size:11,weight:"700"};
+      const chartW=(ctx.chart&&ctx.chart.width)||720;
+      const count=Math.max(labels.length,1);
+      const slotW=Math.max(90,(chartW-80)/count);
+      const longest=Math.max(...labels.map(v=>String(v).length),1);
+      const fitted=Math.floor(slotW/(longest*0.60));
+      return {size:Math.max(12,Math.min(17,fitted)),weight:"800"};
+    },maxRotation:0,minRotation:0,autoSkip:false,padding:8}},y:{beginAtZero:true,grid:{color:grid},ticks:{color:muted,callback:(v)=> percent ? v+"%" : undefined}}}}
   });
   modal.classList.add("open"); modal.setAttribute("aria-hidden","false");
   // 네비게이터의 열림/닫힘 애니메이션이 끝난 뒤 한 번 더 위치를 맞춘다.
@@ -684,9 +709,9 @@ function closeDetailModal(){
 function showDetail(key){
   const hist=getHistoryBeforeCurrent();
   const basis=getYesterdayBasisDays(CURRENT_DATA,PREV_DATA);
-  if(key==="weekTotal"){const d=threeWeekSums(x=>x.total); return openDetailModal({title:"최근 3주 7일 합산 총매출 비교",sub:"각 막대는 표시된 날짜 범위 7일 합산",...d,formatter:fmtManwon});}
-  if(key==="weekSelfNaver"){const d=threeWeekSums(x=>(x.channels[CH.self]||0)+(x.channels[CH.naver]||0)); return openDetailModal({title:"최근 3주 7일 합산 자사몰+네이버 매출 비교",sub:"각 막대는 표시된 날짜 범위 7일 합산",...d,formatter:fmtManwon});}
-  if(key.startsWith("weekProduct:")){const p=key.split(":")[1], d=threeWeekSums(x=>x.products[p]||0); return openDetailModal({title:`${p} 최근 3주 7일 합산 판매수량 비교`,sub:"각 막대는 표시된 날짜 범위 7일 합산",...d,formatter:fmtCount});}
+  if(key==="weekTotal"){const d=threeWeekSums(x=>x.total); return openDetailModal({title:"최근 3주 7일 합산 총매출 비교",sub:"각 막대는 표시된 날짜 범위 7일 합산",...d,formatter:fmtManwon,periodLabels:true});}
+  if(key==="weekSelfNaver"){const d=threeWeekSums(x=>(x.channels[CH.self]||0)+(x.channels[CH.naver]||0)); return openDetailModal({title:"최근 3주 7일 합산 자사몰+네이버 매출 비교",sub:"각 막대는 표시된 날짜 범위 7일 합산",...d,formatter:fmtManwon,periodLabels:true});}
+  if(key.startsWith("weekProduct:")){const p=key.split(":")[1], d=threeWeekSums(x=>x.products[p]||0); return openDetailModal({title:`${p} 최근 3주 7일 합산 판매수량 비교`,sub:"각 막대는 표시된 날짜 범위 7일 합산",...d,formatter:fmtCount,periodLabels:true});}
   if(key==="yTotal"){
     const labels=hist.map(monthLabel).concat(["어제"]), values=hist.map(m=>avgBy(m.days,d=>d.total)).concat([avgOfDays(basis,d=>d.total)]);
     return openDetailModal({title:"어제 총 매출 vs 월별 일평균 총매출",sub:"1월부터 직전월까지의 확정 일평균과 현재 어제 기준 비교",labels,values,formatter:fmtManwon});
