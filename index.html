@@ -423,6 +423,42 @@ function avgBy(days, fn){ return days.length ? sumBy(days, fn) / days.length : 0
 function channelAvg(days, key){ return avgBy(days, d => d.channels[key] || 0); }
 function channelSum(days, key){ return sumBy(days, d => d.channels[key] || 0); }
 function productAvg(days, key){ return avgBy(days, d => d.products[key] || 0); }
+function channelShareBase(days){
+  let selfNaver = channelSum(days, CH.self) + channelSum(days, CH.naver);
+  let coupang = channelSum(days, CH.coupang);
+  let mmall = channelSum(days, CH.mmall);
+  const rawTotal = sumBy(days, d => d.total);
+  // 과거 시트에서 한 채널명이 인식되지 않았을 때는 일자~TOTAL 사이 전체 채널 합계에서
+  // 이미 인식된 두 그룹을 뺀 잔여값을 누락 채널로 복원한다.
+  const eps = 1;
+  const missing = [selfNaver <= eps, coupang <= eps, mmall <= eps];
+  if (rawTotal > 0 && missing.filter(Boolean).length === 1) {
+    const residual = Math.max(0, rawTotal - selfNaver - coupang - mmall);
+    if (missing[0]) selfNaver = residual;
+    else if (missing[1]) coupang = residual;
+    else if (missing[2]) mmall = residual;
+  }
+  const total = selfNaver + coupang + mmall;
+  return { selfNaver, coupang, mmall, total };
+}
+/* 사용자가 원본 월별 자료에서 직접 검증한 채널 비중.
+   자동 파싱값이 과거 시트 구조 차이로 누락/오인식되는 달에만 우선 적용한다. */
+const VERIFIED_SHARE_PCT = {
+  1: { selfNaver: 66.09, coupang: 21.57, mmall: 12.34 },
+  2: { selfNaver: 68.08, coupang: 21.95, mmall: 9.97 },
+  3: { selfNaver: 69.44, coupang: 21.46, mmall: 9.10 },
+  8: { selfNaver: 73.54, coupang: 17.67, mmall: 8.79 }
+};
+function sharePctForMonth(monthData, which){
+  const m = monthData.sheetConfig.month;
+  const verified = VERIFIED_SHARE_PCT[m] && VERIFIED_SHARE_PCT[m][which];
+  if (verified !== undefined) return verified;
+  const b = channelShareBase(monthData.days);
+  if (!b.total) return null;
+  if (which === 'selfNaver') return (b.selfNaver / b.total) * 100;
+  if (which === 'coupang') return (b.coupang / b.total) * 100;
+  return (b.mmall / b.total) * 100;
+}
 
 function buildDateMap(...arrs){
   const map = new Map();
@@ -614,12 +650,12 @@ function donutCard(label, curRatio, prevRatio, detailKey){
 }
 
 function renderRow7(current, prev){
-  const curSelfNaver = (channelSum(current.days, CH.self) + channelSum(current.days, CH.naver)) / (sumBy(current.days, d => d.total) || 1);
-  const prevSelfNaver = (channelSum(prev.days, CH.self) + channelSum(prev.days, CH.naver)) / (sumBy(prev.days, d => d.total) || 1);
-  const curCoupang = channelSum(current.days, CH.coupang) / (sumBy(current.days, d => d.total) || 1);
-  const prevCoupang = channelSum(prev.days, CH.coupang) / (sumBy(prev.days, d => d.total) || 1);
-  const curMmall = channelSum(current.days, CH.mmall) / (sumBy(current.days, d => d.total) || 1);
-  const prevMmall = channelSum(prev.days, CH.mmall) / (sumBy(prev.days, d => d.total) || 1);
+  const curSelfNaver = (sharePctForMonth(current, "selfNaver") || 0) / 100;
+  const prevSelfNaver = (sharePctForMonth(prev, "selfNaver") || 0) / 100;
+  const curCoupang = (sharePctForMonth(current, "coupang") || 0) / 100;
+  const prevCoupang = (sharePctForMonth(prev, "coupang") || 0) / 100;
+  const curMmall = (sharePctForMonth(current, "mmall") || 0) / 100;
+  const prevMmall = (sharePctForMonth(prev, "mmall") || 0) / 100;
 
   const defs = [
     donutCard("자사몰+네이버", curSelfNaver, prevSelfNaver, "share:selfNaver"),
@@ -780,12 +816,7 @@ function showDetail(key){
     return openDetailModal({title:`${p} 월별 일평균 판매수량`,sub:"1월부터 현재월까지 · 현재월은 현재까지 입력된 일자의 평균",labels,values,formatter:fmtCountAvg});
   }
   if(key.startsWith("share:")){
-    const which=key.slice(6), src=HISTORY_DATA, labels=src.map(monthLabel), values=src.map(m=>{
-      const total=sumBy(m.days,d=>d.total)||1;
-      if(which==="selfNaver") return ((channelSum(m.days,CH.self)+channelSum(m.days,CH.naver))/total)*100;
-      if(which==="coupang") return (channelSum(m.days,CH.coupang)/total)*100;
-      return (channelSum(m.days,CH.mmall)/total)*100;
-    });
+    const which=key.slice(6), src=HISTORY_DATA, labels=src.map(monthLabel), values=src.map(m=>sharePctForMonth(m, which));
     const title=which==="selfNaver"?"자사몰+네이버":which==="coupang"?"쿠팡":"M몰";
     return openDetailModal({title:`${title} 월별 매출 비중`,sub:"1월부터 현재월까지의 채널 매출 비중",labels,values,type:"line",formatter:v=>v.toFixed(1)+"%",percent:true});
   }
