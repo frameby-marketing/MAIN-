@@ -273,6 +273,18 @@ function deltaHtml(curVal, prevVal, label, formatter, opts={}){
   return `<div class="delta ${cls}">${arrow} ${label} ${num}</div>${bars}`;
 }
 
+function normalizeChannelName(name){
+  return String(name || "").toUpperCase().replace(/[\s_\-–—·.()]/g, "");
+}
+function canonicalChannelKey(name){
+  const n = normalizeChannelName(name);
+  if (n === "자사몰" || n.includes("CAFE24") || n.includes("카페24") || n.includes("FRAMEBY") || n.includes("프레임바이")) return CH.self;
+  if (n.includes("스마트스토어") || n === "네이버" || n.includes("NAVER") || n.includes("브랜드스토어")) return CH.naver;
+  if (n === "M몰" || n === "MMALL" || n.includes("M몰") || n.includes("MMALL") || n.includes("엠몰") || n.includes("MALL")) return CH.mmall;
+  if (n.includes("쿠팡") || n.includes("COUPANG") || n.includes("로켓") || n.includes("ROCKET")) return CH.coupang;
+  return name;
+}
+
 function normalizeProductName(name){
   return String(name || "").toUpperCase().replace(/[\s_\-–—·.()]/g, "");
 }
@@ -293,6 +305,24 @@ function parseRows(rows, year, month){
   if (!totalKey) return { days: [], channelKeys: [], productKeys: [] };
   const dateIdx = headers.indexOf(dateKey), totalIdx = headers.indexOf(totalKey);
   const channelKeys = headers.slice(dateIdx + 1, totalIdx).filter(h => h && h.trim() && h.trim() !== "요일");
+  // 과거 월 시트는 채널 헤더명이 현재와 다를 수 있으므로, 이름 매칭 실패 시
+  // 일자~TOTAL 사이의 실제 채널 열 순서(자사몰→네이버→M몰→쿠팡)를 fallback으로 사용한다.
+  const channelFallback = {};
+  const canonicalTargets = [CH.self, CH.naver, CH.mmall, CH.coupang];
+  const recognized = new Set();
+  channelKeys.forEach(k => {
+    const c = canonicalChannelKey(k);
+    if (canonicalTargets.includes(c)) recognized.add(c);
+  });
+  if (channelKeys.length >= 4) {
+    const lastFour = channelKeys.slice(-4);
+    canonicalTargets.forEach((target, idx) => {
+      const k = lastFour[idx];
+      if (k && !recognized.has(target) && !canonicalTargets.includes(canonicalChannelKey(k))) {
+        channelFallback[k] = target;
+      }
+    });
+  }
   const productKeys = [];
   for (let i = totalIdx + 1; i < headers.length; i++) {
     const h = headers[i];
@@ -307,7 +337,14 @@ function parseRows(rows, year, month){
     const mo = parseInt(m[1], 10), da = parseInt(m[2], 10);
     const dateObj = new Date(year, mo - 1, da);
     const channels = {}; let total = 0;
-    channelKeys.forEach(k => { const v = toNumber(r[k]); channels[k] = v; total += v; });
+    channelKeys.forEach(k => {
+      const v = toNumber(r[k]);
+      channels[k] = v;
+      let canonical = canonicalChannelKey(k);
+      if (!canonicalTargets.includes(canonical) && channelFallback[k]) canonical = channelFallback[k];
+      if (canonical !== k) channels[canonical] = (channels[canonical] || 0) + v;
+      total += v;
+    });
     const products = {};
     productKeys.forEach(k => {
       const v = toNumber(r[k]);
