@@ -218,7 +218,7 @@ const CONFIG = {
   currentSheet: { name: "2026-08", range: "B228:L259", year: 2026, month: 8 },
   prevSheet:    { name: "2026-07", range: "B224:L265", year: 2026, month: 7 },
   historyStartMonth: 1,
-  historyRange: "B:L",
+  historyRange: "B:AZ",
   /* 구글 클라우드 콘솔에서 발급받은 OAuth 클라이언트 ID로 교체하세요. (설정 가이드 별도 전달) */
   oauthClientId: "691753741006-9i13kjkk3ci2jv6lr6rupa491j7rlb64.apps.googleusercontent.com",
   oauthScope: "https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
@@ -296,7 +296,7 @@ function parseRows(rows, year, month){
   const productKeys = [];
   for (let i = totalIdx + 1; i < headers.length; i++) {
     const h = headers[i];
-    if (!h || !h.trim()) break;
+    if (!h || !h.trim()) continue;
     productKeys.push(h);
   }
   let days = [];
