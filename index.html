@@ -445,9 +445,25 @@ function channelShareBase(days){
    자동 파싱값이 과거 시트 구조 차이로 누락/오인식되는 달에만 우선 적용한다. */
 const VERIFIED_SHARE_PCT = {
   1: { selfNaver: 66.09, coupang: 21.57, mmall: 12.34 },
-  2: { selfNaver: 68.08, coupang: 21.95, mmall: 9.97 },
+  2: { selfNaver: 68.47, coupang: 22.07, mmall: 9.46 },
   3: { selfNaver: 69.44, coupang: 21.46, mmall: 9.10 },
+  4: { selfNaver: 70.99, coupang: 19.09, mmall: 9.92 },
+  5: { selfNaver: 67.55, coupang: 21.40, mmall: 11.05 },
+  6: { selfNaver: 69.69, coupang: 18.06, mmall: 12.25 },
+  7: { selfNaver: 68.56, coupang: 22.10, mmall: 9.34 },
   8: { selfNaver: 73.54, coupang: 17.67, mmall: 8.79 }
+};
+
+/* 사용자가 직접 제공한 2026년 1~7월 채널별 확정 월간 데이터.
+   과거 시트 구조/헤더가 달라 자동 파싱이 흔들리는 경우 이 값을 우선 사용한다. */
+const VERIFIED_CHANNEL_MONTHLY = {
+  1: { avg: { self: 1756330, naver: 2592195, mmall: 811705, coupang: 1419104 }, total: { self: 54446230, naver: 80358052, mmall: 25162856, coupang: 43992221 } },
+  2: { avg: { self: 1719857, naver: 2534935, mmall: 633130, coupang: 1371604 }, total: { self: 48156004, naver: 70978184, mmall: 16461377, coupang: 38404917 } },
+  3: { avg: { self: 1554164, naver: 2601896, mmall: 544769, coupang: 1284265 }, total: { self: 48179073, naver: 80658790, mmall: 16887826, coupang: 39812205 } },
+  4: { avg: { self: 1713977, naver: 2045175, mmall: 525140, coupang: 1011129 }, total: { self: 51419320, naver: 61355250, mmall: 15754191, coupang: 30333856 } },
+  5: { avg: { self: 1462066, naver: 1819911, mmall: 538006, coupang: 1025537 }, total: { self: 43774620, naver: 55061050, mmall: 16165030, coupang: 31313513 } },
+  6: { avg: { self: 1254095, naver: 1570057, mmall: 496538, coupang: 731913 }, total: { self: 37622850, naver: 47101700, mmall: 14896140, coupang: 21957376 } },
+  7: { avg: { self: 973989, naver: 1490413, mmall: 335811, coupang: 794215 }, total: { self: 30193650, naver: 46202800, mmall: 10410138, coupang: 24620673 } }
 };
 function sharePctForMonth(monthData, which){
   const m = monthData.sheetConfig.month;
