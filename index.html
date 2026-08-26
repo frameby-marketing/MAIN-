@@ -91,7 +91,7 @@
   .clickable{cursor:pointer;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease;}
   .clickable:hover{transform:translateY(-1px);border-color:var(--accent);box-shadow:0 8px 28px rgba(0,0,0,.12);}
   .click-hint{font-size:10.5px;color:var(--accent);margin-top:8px;font-weight:600;}
-  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:20px;z-index:9999;}
+  .modal-backdrop{position:fixed;top:0;right:0;bottom:0;left:var(--modal-left-inset,0px);background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:20px;z-index:9999;transition:left .18s ease;}
   .modal-backdrop.open{display:flex;}
   .modal-panel{width:min(980px,96vw);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--card-border);border-radius:18px;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.35);}
   .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
@@ -624,8 +624,39 @@ function threeWeekSums(valueFn){
     colors:WEEK_COLORS
   };
 }
+function getVisibleLeftNavigatorInset(){
+  const vw=window.innerWidth, vh=window.innerHeight;
+  let inset=0;
+  const modal=document.getElementById("detailModal");
+  const nodes=document.querySelectorAll("body *");
+  for(const el of nodes){
+    if(el===modal || (modal && modal.contains(el))) continue;
+    const cs=getComputedStyle(el);
+    if(cs.display==="none" || cs.visibility==="hidden" || Number(cs.opacity)===0) continue;
+    if(cs.position!=="fixed" && cs.position!=="sticky") continue;
+    const r=el.getBoundingClientRect();
+    // 좌측에 실제로 펼쳐진 세로형 네비게이터만 감지한다.
+    if(r.left>-2 || r.right<=0) continue;
+    if(r.width<120 || r.width>Math.min(460,vw*0.46)) continue;
+    if(r.height<vh*0.55) continue;
+    if(r.right>0 && r.right<vw*0.48) inset=Math.max(inset,Math.round(r.right));
+  }
+  return inset;
+}
+function syncDetailModalViewport(){
+  const modal=document.getElementById("detailModal");
+  if(!modal) return;
+  const inset=getVisibleLeftNavigatorInset();
+  modal.style.setProperty("--modal-left-inset", inset+"px");
+}
+window.addEventListener("resize",()=>{
+  const modal=document.getElementById("detailModal");
+  if(modal && modal.classList.contains("open")) syncDetailModalViewport();
+});
+
 function openDetailModal({title, sub="", labels, values, type="bar", formatter=fmtManwon, colors=null, percent=false}){
   const modal=document.getElementById("detailModal");
+  syncDetailModalViewport();
   document.getElementById("detailModalTitle").textContent=title;
   document.getElementById("detailModalSub").textContent=sub;
   if(DETAIL_CHART) DETAIL_CHART.destroy();
@@ -642,6 +673,9 @@ function openDetailModal({title, sub="", labels, values, type="bar", formatter=f
     options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:38}},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>formatter(ctx.raw)}},datalabels:{formatter:(v)=>formatter(v),anchor:"end",align:"top",offset:5,clamp:true,clip:false,color:text,font:{size:15,weight:"800"}}},scales:{x:{grid:{display:false},ticks:{color:text,font:{size:11,weight:"700"},maxRotation:0,minRotation:0,autoSkip:false}},y:{beginAtZero:true,grid:{color:grid},ticks:{color:muted,callback:(v)=> percent ? v+"%" : undefined}}}}
   });
   modal.classList.add("open"); modal.setAttribute("aria-hidden","false");
+  // 네비게이터의 열림/닫힘 애니메이션이 끝난 뒤 한 번 더 위치를 맞춘다.
+  requestAnimationFrame(syncDetailModalViewport);
+  setTimeout(syncDetailModalViewport,220);
 }
 function closeDetailModal(){
   const modal=document.getElementById("detailModal");
