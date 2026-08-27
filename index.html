@@ -95,11 +95,16 @@
   .modal-backdrop.open{display:flex;}
   .modal-panel{width:min(980px,calc(100% - 40px));max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--card-border);border-radius:18px;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.35);}
   .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
+  .modal-head-actions{display:flex;align-items:center;gap:8px;flex:none;}
+  .detail-view-toggle{display:none;align-items:center;background:var(--track);border:1px solid var(--card-border);border-radius:999px;padding:3px;gap:2px;}
+  .detail-view-toggle.show{display:inline-flex;}
+  .detail-view-toggle button{border:none;background:transparent;color:var(--sub);padding:7px 12px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+  .detail-view-toggle button.active{background:var(--accent);color:#fff;}
   .modal-title{font-size:18px;font-weight:800;line-height:1.35;}
   .modal-sub{font-size:12px;color:var(--sub);margin-top:5px;line-height:1.6;white-space:pre-line;}.modal-sub .summary-line{display:block;margin-top:2px;color:var(--text);font-weight:700;}
   .modal-close{border:1px solid var(--card-border);background:var(--track);color:var(--text);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:18px;flex:none;}
   .modal-chart-wrap{height:430px;position:relative;}
-  @media(max-width:620px){.modal-panel{padding:16px}.modal-chart-wrap{height:360px}.modal-title{font-size:16px;}}
+  @media(max-width:620px){.modal-panel{padding:16px}.modal-chart-wrap{height:360px}.modal-title{font-size:16px}.modal-head{gap:10px}.modal-head-actions{gap:6px}.detail-view-toggle button{padding:6px 9px;font-size:11px;}}
 </style>
 </head>
 <body>
@@ -192,7 +197,13 @@
     <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
       <div class="modal-head">
         <div><div class="modal-title" id="detailModalTitle"></div><div class="modal-sub" id="detailModalSub"></div></div>
-        <button class="modal-close" id="detailModalClose" type="button" aria-label="닫기">×</button>
+        <div class="modal-head-actions">
+          <div class="detail-view-toggle" id="productDetailViewToggle" aria-label="제품 상세 비교 기간 선택">
+            <button type="button" id="productMonthlyBtn" class="active">월별비교</button>
+            <button type="button" id="product30DaysBtn">최근 30일</button>
+          </div>
+          <button class="modal-close" id="detailModalClose" type="button" aria-label="닫기">×</button>
+        </div>
       </div>
       <div class="modal-chart-wrap"><canvas id="detailModalChart"></canvas></div>
     </div>
@@ -825,6 +836,8 @@ function openDetailModal({title, sub="", labels, values, type="bar", formatter=f
   syncDetailModalViewport();
   document.getElementById("detailModalTitle").textContent=title;
   document.getElementById("detailModalSub").textContent=sub;
+  const productToggle=document.getElementById("productDetailViewToggle");
+  if(productToggle) productToggle.classList.remove("show");
   if(DETAIL_CHART) DETAIL_CHART.destroy();
   const style=getComputedStyle(document.documentElement);
   const text=style.getPropertyValue("--text").trim()||"#e8eaed";
@@ -874,6 +887,52 @@ function closeDetailModal(){
   const modal=document.getElementById("detailModal");
   modal.classList.remove("open"); modal.setAttribute("aria-hidden","true");
 }
+function dateKeyLocal(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function recent30DayProductSeries(productKey){
+  const allDays=HISTORY_DATA.flatMap(m=>m.days||[]).sort((a,b)=>a.dateObj-b.dateObj);
+  if(!allDays.length) return {labels:[],values:[],start:null,end:null};
+  const byDate=new Map(allDays.map(d=>[dateKeyLocal(d.dateObj),d]));
+  const end=new Date(allDays[allDays.length-1].dateObj);
+  const start=dayOffset(end,-29);
+  const labels=[], values=[];
+  for(let i=0;i<30;i++){
+    const dt=dayOffset(start,i);
+    const row=byDate.get(dateKeyLocal(dt));
+    labels.push(`${dt.getMonth()+1}/${dt.getDate()}`);
+    values.push(Math.round(row ? (row.products[productKey]||0) : 0));
+  }
+  return {labels,values,start,end};
+}
+function showProductDetail(key, view="monthly"){
+  const hist=getHistoryBeforeCurrent();
+  const basis=getYesterdayBasisDays(CURRENT_DATA,PREV_DATA);
+  const isYesterday=key.startsWith("productYesterday:");
+  const p=key.slice(key.indexOf(":")+1);
+  if(view==="30days"){
+    const d=recent30DayProductSeries(p);
+    const range=d.start&&d.end ? `${d.start.getMonth()+1}/${d.start.getDate()} ~ ${d.end.getMonth()+1}/${d.end.getDate()}` : "최근 30일";
+    openDetailModal({title:`${p} 최근 30일 일별 판매수량`,sub:`${range} · 가장 최근 입력된 날짜 기준 · 일별 판매수량`,labels:d.labels,values:d.values,formatter:fmtCount,showAverage:true});
+  }else if(isYesterday){
+    const labels=hist.map(monthLabel).concat(["어제"]);
+    const values=hist.map(m=>Math.round(productAvg(m.days,p))).concat([Math.round(avgOfDays(basis,d=>d.products[p]||0))]);
+    openDetailModal({title:`${p} 어제 판매수량 vs 월별 일평균`,sub:`1월부터 직전월까지의 일평균 판매수량과 어제 기준 비교 · 판매수량은 반올림한 정수로 표시\n${peakSummary(labels,values,fmtCount)}`,labels,values,formatter:fmtCount,showAverage:true});
+  }else{
+    const src=HISTORY_DATA, labels=src.map(monthLabel), values=src.map(m=>Math.round(productAvg(m.days,p)));
+    openDetailModal({title:`${p} 월별 일평균 판매수량`,sub:`1월부터 현재월까지 · 현재월은 현재까지 입력된 일자의 평균 · 판매수량은 반올림한 정수로 표시\n${peakSummary(labels,values,fmtCount)}`,labels,values,formatter:fmtCount,showAverage:true});
+  }
+  const toggle=document.getElementById("productDetailViewToggle");
+  const monthly=document.getElementById("productMonthlyBtn");
+  const days30=document.getElementById("product30DaysBtn");
+  if(toggle){
+    toggle.classList.add("show");
+    monthly.classList.toggle("active",view==="monthly");
+    days30.classList.toggle("active",view==="30days");
+    monthly.onclick=()=>showProductDetail(key,"monthly");
+    days30.onclick=()=>showProductDetail(key,"30days");
+  }
+}
 function showDetail(key){
   const hist=getHistoryBeforeCurrent();
   const basis=getYesterdayBasisDays(CURRENT_DATA,PREV_DATA);
@@ -902,13 +961,8 @@ function showDetail(key){
     const ch=key.slice("channelAvg:".length), src=HISTORY_DATA, labels=src.map(monthLabel), values=src.map(m=>verifiedChannelAvg(m,ch));
     return openDetailModal({title:`${ch} 월별 일평균 매출`,sub:`1월부터 현재월까지 · 현재월은 현재까지 입력된 일자의 평균\n${peakSummary(labels,values,fmtManwon)}`,labels,values,formatter:fmtManwon,showAverage:true});
   }
-  if(key.startsWith("productYesterday:")){
-    const p=key.slice("productYesterday:".length), labels=hist.map(monthLabel).concat(["어제"]), values=hist.map(m=>Math.round(productAvg(m.days,p))).concat([Math.round(avgOfDays(basis,d=>d.products[p]||0))]);
-    return openDetailModal({title:`${p} 어제 판매수량 vs 월별 일평균`,sub:`1월부터 직전월까지의 일평균 판매수량과 어제 기준 비교 · 판매수량은 반올림한 정수로 표시\n${peakSummary(labels,values,fmtCount)}`,labels,values,formatter:fmtCount,showAverage:true});
-  }
-  if(key.startsWith("productMonthAvg:")){
-    const p=key.slice("productMonthAvg:".length), src=HISTORY_DATA, labels=src.map(monthLabel), values=src.map(m=>Math.round(productAvg(m.days,p)));
-    return openDetailModal({title:`${p} 월별 일평균 판매수량`,sub:`1월부터 현재월까지 · 현재월은 현재까지 입력된 일자의 평균 · 판매수량은 반올림한 정수로 표시\n${peakSummary(labels,values,fmtCount)}`,labels,values,formatter:fmtCount,showAverage:true});
+  if(key.startsWith("productYesterday:") || key.startsWith("productMonthAvg:")){
+    return showProductDetail(key,"monthly");
   }
   if(key.startsWith("share:")){
     const which=key.slice(6), src=HISTORY_DATA, labels=src.map(monthLabel), values=src.map(m=>sharePctForMonth(m, which));
