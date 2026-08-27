@@ -819,17 +819,24 @@ function peakSummary(labels, values, formatter){
   const current=Number(values[values.length-1])||0, peak=Number(values[idx])||0;
   return `가장 높았던 시점은 ${labels[idx]} · ${formatter(peak)}\n가장 높았던 시점 대비 현재는 ${signedCompareText(current,peak,formatter)}`;
 }
-function averageLabelPlacement(chart, values, average, minGap=34){
+function averageLabelPlacement(chart, values, average, minGap=40){
   const yScale=chart?.scales?.y;
-  if(!yScale || !values.length) return {index:Math.max(values.length-1,0), crowded:false};
+  const count=values.length;
+  if(!yScale || !count) return {index:Math.max(count-1,0), crowded:false, align:"top", offset:4};
   const avgY=yScale.getPixelForValue(average);
-  let bestIndex=values.length-1, bestGap=-1;
-  for(let i=values.length-1;i>=0;i--){
+  let bestIndex=count-1, bestGap=-1;
+
+  // 우측부터 확인해 평균선과 막대 상단 값 사이에 충분한 세로 공간이 있으면 기존처럼 위에 표시한다.
+  for(let i=count-1;i>=0;i--){
     const gap=Math.abs(yScale.getPixelForValue(Number(values[i])||0)-avgY);
-    if(gap>=minGap) return {index:i,crowded:false};
+    if(gap>=minGap) return {index:i,crowded:false,align:"top",offset:4};
     if(gap>bestGap){ bestGap=gap; bestIndex=i; }
   }
-  return {index:bestIndex,crowded:true};
+
+  // 모든 막대가 평균선 근처에 몰린 경우에는 평균 라벨을 막대 중심에서 좌/우로 비켜 배치한다.
+  // 오른쪽 절반의 포인트면 왼쪽으로, 왼쪽 절반이면 오른쪽으로 보내 차트 밖 잘림도 줄인다.
+  const align=bestIndex>=count/2 ? "left" : "right";
+  return {index:bestIndex,crowded:true,align,offset:18};
 }
 function openDetailModal({title, sub="", labels, values, type="bar", formatter=fmtManwon, colors=null, percent=false, periodLabels=false, showAverage=false}){
   const modal=document.getElementById("detailModal");
@@ -859,11 +866,11 @@ function openDetailModal({title, sub="", labels, values, type="bar", formatter=f
         anchor:"end",
         align:(ctx)=>{
           const avg=averageOfFinite(values);
-          return averageLabelPlacement(ctx.chart,values,avg).crowded ? "bottom" : "top";
+          return averageLabelPlacement(ctx.chart,values,avg).align;
         },
         offset:(ctx)=>{
           const avg=averageOfFinite(values);
-          return averageLabelPlacement(ctx.chart,values,avg).crowded ? 8 : 4;
+          return averageLabelPlacement(ctx.chart,values,avg).offset;
         },
         color:"#ffb648",font:{size:13,weight:"800"}
       }}]:[])
@@ -938,7 +945,17 @@ function showDetail(key){
   const basis=getYesterdayBasisDays(CURRENT_DATA,PREV_DATA);
   if(key==="weekTotal"){const d=threeWeekSums(x=>x.total), cur=d.values[2], prev=d.values[1], prev2=d.values[0]; return openDetailModal({title:"최근 3주 7일 합산 총매출 비교",sub:`각 막대는 표시된 날짜 범위 7일 합산\n전주대비 ${signedCompareText(cur,prev,fmtManwon)}\n전전주대비 ${signedCompareText(cur,prev2,fmtManwon)}`,...d,formatter:fmtManwon,periodLabels:true});}
   if(key==="weekSelfNaver"){const d=threeWeekSums(x=>(x.channels[CH.self]||0)+(x.channels[CH.naver]||0)), cur=d.values[2], prev=d.values[1], prev2=d.values[0]; return openDetailModal({title:"최근 3주 7일 합산 자사몰+네이버 매출 비교",sub:`각 막대는 표시된 날짜 범위 7일 합산\n전주대비 ${signedCompareText(cur,prev,fmtManwon)}\n전전주대비 ${signedCompareText(cur,prev2,fmtManwon)}`,...d,formatter:fmtManwon,periodLabels:true});}
-  if(key.startsWith("weekProduct:")){const p=key.split(":")[1], d=threeWeekSums(x=>x.products[p]||0); return openDetailModal({title:`${p} 최근 3주 7일 합산 판매수량 비교`,sub:"각 막대는 표시된 날짜 범위 7일 합산",...d,formatter:fmtCount,periodLabels:true});}
+  if(key.startsWith("weekProduct:")){
+    const p=key.split(":")[1], d=threeWeekSums(x=>x.products[p]||0);
+    const cur=d.values[2], prev=d.values[1], prev2=d.values[0];
+    return openDetailModal({
+      title:`${p} 최근 3주 7일 합산 판매수량 비교`,
+      sub:`각 막대는 표시된 날짜 범위 7일 합산
+전전주 대비 ${signedCompareText(cur,prev2,fmtCount)}
+전주 대비 ${signedCompareText(cur,prev,fmtCount)}`,
+      ...d,formatter:fmtCount,periodLabels:true
+    });
+  }
   if(key==="yTotal"){
     const labels=hist.map(monthLabel).concat(["어제"]), values=hist.map(m=>verifiedMonthlyMetric(m,"totalAvg",x=>avgBy(x.days,d=>d.total))).concat([avgOfDays(basis,d=>d.total)]);
     return openDetailModal({title:"어제 총 매출 vs 월별 일평균 총매출",sub:`1월부터 직전월까지의 확정 일평균과 현재 어제 기준 비교\n${peakSummary(labels,values,fmtManwon)}`,labels,values,formatter:fmtManwon,showAverage:true});
