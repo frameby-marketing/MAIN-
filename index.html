@@ -157,22 +157,22 @@
 
   <div class="section-title">제품별 판매수량 추이 (최근 3주)</div>
   <div class="grid-2" id="productTrendRow">
-    <div class="chart-card clickable" id="mkTrendCard" title="클릭하여 7일 합산 비교 보기">
+    <div class="chart-card clickable" id="mkTrendCard" title="클릭하여 최근 10주 7일 합산 비교 보기">
       <div class="ttl">MK 판매수량 추이</div>
       <div class="legend" id="mkTrendLegend"></div>
       <div class="chart-wrap" style="height:220px;"><canvas id="mkTrendChart" role="img" aria-label="최근 3주간 MK 판매수량 추이">MK 판매수량 추이</canvas></div>
     </div>
-    <div class="chart-card clickable" id="phTrendCard" title="클릭하여 7일 합산 비교 보기">
+    <div class="chart-card clickable" id="phTrendCard" title="클릭하여 최근 10주 7일 합산 비교 보기">
       <div class="ttl">PH 판매수량 추이</div>
       <div class="legend" id="phTrendLegend"></div>
       <div class="chart-wrap" style="height:220px;"><canvas id="phTrendChart" role="img" aria-label="최근 3주간 PH 판매수량 추이">PH 판매수량 추이</canvas></div>
     </div>
-    <div class="chart-card clickable" id="dwproTrendCard" title="클릭하여 7일 합산 비교 보기">
+    <div class="chart-card clickable" id="dwproTrendCard" title="클릭하여 최근 10주 7일 합산 비교 보기">
       <div class="ttl">DW프로 판매수량 추이</div>
       <div class="legend" id="dwproTrendLegend"></div>
       <div class="chart-wrap" style="height:220px;"><canvas id="dwproTrendChart" role="img" aria-label="최근 3주간 DW프로 판매수량 추이">DW프로 판매수량 추이</canvas></div>
     </div>
-    <div class="chart-card clickable" id="dwplusTrendCard" title="클릭하여 7일 합산 비교 보기">
+    <div class="chart-card clickable" id="dwplusTrendCard" title="클릭하여 최근 10주 7일 합산 비교 보기">
       <div class="ttl">DW플러스 판매수량 추이</div>
       <div class="legend" id="dwplusTrendLegend"></div>
       <div class="chart-wrap" style="height:220px;"><canvas id="dwplusTrendChart" role="img" aria-label="최근 3주간 DW플러스 판매수량 추이">DW플러스 판매수량 추이</canvas></div>
@@ -977,11 +977,11 @@ function showDetail(key){
   if(key==="weekTotal"){const d=tenWeekSalesSums(x=>x.total), n=d.values.length, cur=d.values[n-1], prev=d.values[n-2], prev2=d.values[n-3]; return openDetailModal({title:"최근 10주 7일 합산 총매출 비교",sub:`각 막대는 표시된 날짜 범위 7일 합산 · 최근 3주는 빨강·노랑·파랑, 이전 7주는 회색\n전주대비 ${signedCompareText(cur,prev,fmtManwon)}\n전전주대비 ${signedCompareText(cur,prev2,fmtManwon)}`,...d,formatter:fmtManwon,periodLabels:true});}
   if(key==="weekSelfNaver"){const d=tenWeekSalesSums(x=>(x.channels[CH.self]||0)+(x.channels[CH.naver]||0)), n=d.values.length, cur=d.values[n-1], prev=d.values[n-2], prev2=d.values[n-3]; return openDetailModal({title:"최근 10주 7일 합산 자사몰+네이버 매출 비교",sub:`각 막대는 표시된 날짜 범위 7일 합산 · 최근 3주는 빨강·노랑·파랑, 이전 7주는 회색\n전주대비 ${signedCompareText(cur,prev,fmtManwon)}\n전전주대비 ${signedCompareText(cur,prev2,fmtManwon)}`,...d,formatter:fmtManwon,periodLabels:true});}
   if(key.startsWith("weekProduct:")){
-    const p=key.split(":")[1], d=threeWeekSums(x=>x.products[p]||0);
-    const cur=d.values[2], prev=d.values[1], prev2=d.values[0];
+    const p=key.split(":")[1], d=tenWeekSalesSums(x=>x.products[p]||0);
+    const n=d.values.length, cur=d.values[n-1], prev=d.values[n-2], prev2=d.values[n-3];
     return openDetailModal({
-      title:`${p} 최근 3주 7일 합산 판매수량 비교`,
-      sub:`각 막대는 표시된 날짜 범위 7일 합산
+      title:`${p} 최근 10주 7일 합산 판매수량 비교`,
+      sub:`각 막대는 표시된 날짜 범위 7일 합산 · 최근 3주는 빨강·노랑·파랑, 이전 7주는 회색
 전전주 대비 ${signedCompareText(cur,prev2,fmtCount)}
 전주 대비 ${signedCompareText(cur,prev,fmtCount)}`,
       ...d,formatter:fmtCount,periodLabels:true
