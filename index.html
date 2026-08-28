@@ -1001,6 +1001,16 @@ function averageLabelPlacement(chart, values, average, minGap=40){
 }
 function openDetailModal({title, sub="", labels, values, type="bar", formatter=fmtManwon, colors=null, percent=false, periodLabels=false, showAverage=false}){
   const modal=document.getElementById("detailModal");
+
+  // 비중(%) 차트는 0%부터 고정하면 실제 데이터가 상단에 몰려 월별 차이를 보기 어렵다.
+  // 실제 최저/최고값 주변에 5%p 여백을 두고 5% 단위로 축 범위를 자동 조정한다.
+  const finitePercentValues = percent ? values.filter(Number.isFinite) : [];
+  const percentMin = finitePercentValues.length
+    ? Math.max(0, Math.floor((Math.min(...finitePercentValues) - 5) / 5) * 5)
+    : 0;
+  const percentMax = finitePercentValues.length
+    ? Math.min(100, Math.ceil((Math.max(...finitePercentValues) + 5) / 5) * 5)
+    : 100;
   syncDetailModalViewport();
   document.getElementById("detailModalTitle").textContent=title;
   document.getElementById("detailModalSub").textContent=sub;
@@ -1046,7 +1056,17 @@ function openDetailModal({title, sub="", labels, values, type="bar", formatter=f
       const minSize=labels.length>=8 ? 9 : 12;
       const maxSize=labels.length>=8 ? 12 : 17;
       return {size:Math.max(minSize,Math.min(maxSize,fitted)),weight:"800"};
-    },maxRotation:0,minRotation:0,autoSkip:false,padding:8}},y:{beginAtZero:true,grid:{color:grid},ticks:{color:muted,callback:(v)=> percent ? v+"%" : undefined}}}}
+    },maxRotation:0,minRotation:0,autoSkip:false,padding:8}},y:{
+      beginAtZero:!percent,
+      min:percent ? percentMin : undefined,
+      max:percent ? percentMax : undefined,
+      grid:{color:grid},
+      ticks:{
+        color:muted,
+        stepSize:percent ? 5 : undefined,
+        callback:(v)=> percent ? v+"%" : undefined
+      }
+    }}}}
   });
   modal.classList.add("open"); modal.setAttribute("aria-hidden","false");
   // 네비게이터의 열림/닫힘 애니메이션이 끝난 뒤 한 번 더 위치를 맞춘다.
@@ -1148,7 +1168,7 @@ function showDetail(key){
     const which=key.slice(6), src=HISTORY_DATA, labels=src.map(monthLabel), values=src.map(m=>sharePctForMonth(m, which));
     const title=which==="selfNaver"?"자사몰+네이버":which==="coupang"?"쿠팡":"M몰";
     const avg=averageOfFinite(values);
-    return openDetailModal({title:`${title} 월별 매출 비중`,sub:`1월부터 현재월까지의 채널 매출 비중\n평균 ${avg.toFixed(1)}%`,labels,values,type:"line",formatter:v=>v.toFixed(1)+"%",percent:true,showAverage:true});
+    return openDetailModal({title:`${title} 월별 매출 비중`,sub:`1월부터 현재월까지의 채널 매출 비중 · 실제 데이터 범위에 맞춰 Y축 자동 조정\n평균 ${avg.toFixed(1)}%`,labels,values,type:"line",formatter:v=>v.toFixed(1)+"%",percent:true,showAverage:true});
   }
 }
 function bindDetailInteractions(){
