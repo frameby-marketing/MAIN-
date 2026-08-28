@@ -139,13 +139,13 @@
 
   <div id="dashboardContent" style="display:none;">
   <div class="section-title">최근 3주 요일별 매출 추이 (전체 플랫폼 합산)</div>
-  <div class="chart-card clickable" id="weekTotalCard" title="클릭하여 7일 합산 비교 보기">
+  <div class="chart-card clickable" id="weekTotalCard" title="클릭하여 최근 10주 7일 합산 비교 보기">
     <div class="legend" id="weekLegend"></div>
     <div class="chart-wrap" style="height:320px;"><canvas id="weekChart" role="img" aria-label="최근 3주간 요일별 매출 추이 선 차트, 전체 플랫폼 합산">최근 3주 요일별 매출 추이</canvas></div>
   </div>
 
   <div class="section-title">최근 3주 요일별 매출 추이 (자사몰+네이버 합산)</div>
-  <div class="chart-card clickable" id="weekSelfNaverCard" title="클릭하여 7일 합산 비교 보기">
+  <div class="chart-card clickable" id="weekSelfNaverCard" title="클릭하여 최근 10주 7일 합산 비교 보기">
     <div class="legend" id="weekLegend2"></div>
     <div class="chart-wrap" style="height:320px;"><canvas id="weekChart2" role="img" aria-label="최근 3주간 요일별 매출 추이 선 차트, 자사몰과 네이버 합산">최근 3주 요일별 매출 추이 (자사몰+네이버)</canvas></div>
   </div>
@@ -754,6 +754,35 @@ function threeWeekSums(valueFn){
     colors:WEEK_COLORS
   };
 }
+function tenWeekSalesSums(valueFn){
+  const allDays = HISTORY_DATA
+    .flatMap(m => m.days || [])
+    .sort((a,b)=>a.dateObj-b.dateObj);
+  const refDay = CURRENT_DATA?.days?.[CURRENT_DATA.days.length-1] || allDays[allDays.length-1];
+  if (!refDay) return {labels:[], values:[], colors:[]};
+
+  const map = new Map(allDays.map(d => [d.dateObj.toDateString(), d]));
+  const dayList=[];
+  for(let i=69;i>=0;i--) dayList.push(dayOffset(refDay.dateObj,-i));
+
+  const weeks=[];
+  for(let i=0;i<10;i++) weeks.push(dayList.slice(i*7,(i+1)*7));
+
+  const rangeLabel = (w) => {
+    const a=w[0], b=w[6];
+    return `${a.getMonth()+1}/${a.getDate()}(${WEEKDAY_NAMES[a.getDay()]}) ~ ${b.getMonth()+1}/${b.getDate()}(${WEEKDAY_NAMES[b.getDay()]})`;
+  };
+
+  const gray = "rgba(154,161,172,.55)";
+  return {
+    labels: weeks.map(rangeLabel),
+    values: weeks.map(w => w.reduce((sum,dt)=>{
+      const r=map.get(dt.toDateString());
+      return sum+(r?valueFn(r):0);
+    },0)),
+    colors: [gray,gray,gray,gray,gray,gray,gray,...WEEK_COLORS]
+  };
+}
 function getVisibleLeftNavigatorInset(){
   const vw=window.innerWidth, vh=window.innerHeight;
   let inset=0;
@@ -882,7 +911,9 @@ function openDetailModal({title, sub="", labels, values, type="bar", formatter=f
       const slotW=Math.max(90,(chartW-80)/count);
       const longest=Math.max(...labels.map(v=>String(v).length),1);
       const fitted=Math.floor(slotW/(longest*0.60));
-      return {size:Math.max(12,Math.min(17,fitted)),weight:"800"};
+      const minSize=labels.length>=8 ? 9 : 12;
+      const maxSize=labels.length>=8 ? 12 : 17;
+      return {size:Math.max(minSize,Math.min(maxSize,fitted)),weight:"800"};
     },maxRotation:0,minRotation:0,autoSkip:false,padding:8}},y:{beginAtZero:true,grid:{color:grid},ticks:{color:muted,callback:(v)=> percent ? v+"%" : undefined}}}}
   });
   modal.classList.add("open"); modal.setAttribute("aria-hidden","false");
@@ -943,8 +974,8 @@ function showProductDetail(key, view="monthly"){
 function showDetail(key){
   const hist=getHistoryBeforeCurrent();
   const basis=getYesterdayBasisDays(CURRENT_DATA,PREV_DATA);
-  if(key==="weekTotal"){const d=threeWeekSums(x=>x.total), cur=d.values[2], prev=d.values[1], prev2=d.values[0]; return openDetailModal({title:"최근 3주 7일 합산 총매출 비교",sub:`각 막대는 표시된 날짜 범위 7일 합산\n전주대비 ${signedCompareText(cur,prev,fmtManwon)}\n전전주대비 ${signedCompareText(cur,prev2,fmtManwon)}`,...d,formatter:fmtManwon,periodLabels:true});}
-  if(key==="weekSelfNaver"){const d=threeWeekSums(x=>(x.channels[CH.self]||0)+(x.channels[CH.naver]||0)), cur=d.values[2], prev=d.values[1], prev2=d.values[0]; return openDetailModal({title:"최근 3주 7일 합산 자사몰+네이버 매출 비교",sub:`각 막대는 표시된 날짜 범위 7일 합산\n전주대비 ${signedCompareText(cur,prev,fmtManwon)}\n전전주대비 ${signedCompareText(cur,prev2,fmtManwon)}`,...d,formatter:fmtManwon,periodLabels:true});}
+  if(key==="weekTotal"){const d=tenWeekSalesSums(x=>x.total), n=d.values.length, cur=d.values[n-1], prev=d.values[n-2], prev2=d.values[n-3]; return openDetailModal({title:"최근 10주 7일 합산 총매출 비교",sub:`각 막대는 표시된 날짜 범위 7일 합산 · 최근 3주는 빨강·노랑·파랑, 이전 7주는 회색\n전주대비 ${signedCompareText(cur,prev,fmtManwon)}\n전전주대비 ${signedCompareText(cur,prev2,fmtManwon)}`,...d,formatter:fmtManwon,periodLabels:true});}
+  if(key==="weekSelfNaver"){const d=tenWeekSalesSums(x=>(x.channels[CH.self]||0)+(x.channels[CH.naver]||0)), n=d.values.length, cur=d.values[n-1], prev=d.values[n-2], prev2=d.values[n-3]; return openDetailModal({title:"최근 10주 7일 합산 자사몰+네이버 매출 비교",sub:`각 막대는 표시된 날짜 범위 7일 합산 · 최근 3주는 빨강·노랑·파랑, 이전 7주는 회색\n전주대비 ${signedCompareText(cur,prev,fmtManwon)}\n전전주대비 ${signedCompareText(cur,prev2,fmtManwon)}`,...d,formatter:fmtManwon,periodLabels:true});}
   if(key.startsWith("weekProduct:")){
     const p=key.split(":")[1], d=threeWeekSums(x=>x.products[p]||0);
     const cur=d.values[2], prev=d.values[1], prev2=d.values[0];
