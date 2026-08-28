@@ -411,14 +411,67 @@ async function loadMonth(sheetConfig, accessToken){
 async function loadMonthAuto(year, month, accessToken){
   const sheetConfig = { name: `${year}-${String(month).padStart(2,"0")}`, range: CONFIG.historyRange, year, month };
   const values = await fetchSheetValues(sheetConfig, accessToken);
-  const headerIdx = values.findIndex(row => {
-    const cells = (row || []).map(v => String(v).trim().toUpperCase());
-    return cells.includes("일자") && cells.includes("TOTAL");
+
+  // 과거 월 시트에는 "일자 / TOTAL" 형식의 표가 여러 개 존재할 수 있다.
+  // 기존에는 첫 번째 표를 무조건 선택해 실제 매출 원본표가 아닌 다른 표를 읽을 수 있었다.
+  // 채널/제품 헤더와 해당 월의 일별 날짜 행을 함께 점수화하여 실제 매출 원본표를 선택한다.
+  const candidates = [];
+  values.forEach((row, idx) => {
+    const rawCells = (row || []).map(v => String(v).trim());
+    const upperCells = rawCells.map(v => v.toUpperCase());
+    const dateIdx = rawCells.findIndex(v => v === "일자");
+    const totalIdx = upperCells.findIndex(v => v === "TOTAL");
+    if (dateIdx < 0 || totalIdx < 0 || totalIdx <= dateIdx) return;
+
+    const channelHeaders = rawCells.slice(dateIdx + 1, totalIdx)
+      .filter(v => v && v !== "요일");
+    const productHeaders = rawCells.slice(totalIdx + 1).filter(Boolean);
+
+    const knownChannels = channelHeaders.filter(h =>
+      [CH.self, CH.naver, CH.mmall, CH.coupang].includes(canonicalChannelKey(h))
+    ).length;
+    const knownProducts = productHeaders.filter(h =>
+      [PR.mk, PR.ph, PR.dwpro, PR.dwplus].includes(canonicalProductKey(h))
+    ).length;
+
+    // 헤더 아래 약 45행에서 해당 월의 M/D 형식 일자 개수를 확인한다.
+    let monthDateRows = 0;
+    for (let r = idx + 1; r < Math.min(values.length, idx + 46); r++) {
+      const rawDate = String((values[r] || [])[dateIdx] ?? "").trim();
+      const m = rawDate.match(/^(\d{1,2})\s*\/\s*(\d{1,2})/);
+      if (m && parseInt(m[1], 10) === month) monthDateRows++;
+    }
+
+    const score = knownChannels * 100 + knownProducts * 20 + monthDateRows;
+    candidates.push({ idx, score, knownChannels, knownProducts, monthDateRows });
   });
-  if (headerIdx < 0) throw new Error(`${sheetConfig.name} 시트에서 일자/TOTAL 헤더를 찾지 못했습니다.`);
-  const rows = valuesToRowObjects(values.slice(headerIdx));
-  const parsed = parseRows(rows, year, month);
-  return { ...parsed, live: true, sheetConfig };
+
+  if (!candidates.length) throw new Error(`${sheetConfig.name} 시트에서 일자/TOTAL 헤더를 찾지 못했습니다.`);
+
+  candidates.sort((a,b) => b.score - a.score || b.monthDateRows - a.monthDateRows || b.idx - a.idx);
+  const headerIdx = candidates[0].idx;
+
+  // 선택한 표 아래에서 다음 "일자/TOTAL" 표가 시작되기 전까지만 읽는다.
+  let endIdx = values.length;
+  for (let i = headerIdx + 1; i < values.length; i++) {
+    const cells = (values[i] || []).map(v => String(v).trim().toUpperCase());
+    if (cells.includes("일자") && cells.includes("TOTAL")) {
+      endIdx = i;
+      break;
+    }
+  }
+
+  const rows = valuesToRowObjects(values.slice(headerIdx, endIdx));
+  let parsed = parseRows(rows, year, month);
+
+  // 과거 월 자동 로딩에서는 해당 월 날짜만 보존한다.
+  // 월경계 날짜는 각 실제 월의 시트에서 가져오므로 중복/오선택을 원천 차단한다.
+  parsed = {
+    ...parsed,
+    days: parsed.days.filter(d => (d.dateObj.getMonth() + 1) === month)
+  };
+
+  return { ...parsed, live: true, sheetConfig, autoHeaderRow: headerIdx + 1 };
 }
 
 async function loadHistory(accessToken){
