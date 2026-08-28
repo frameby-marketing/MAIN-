@@ -239,6 +239,11 @@ const PR = { mk: "MK", mc: "MC", dwpro: "DW프로", dwplus: "DW플러스", ph: "
 const PALETTE = ["#4c8dff", "#8b7bf0", "#3ecf8e", "#ffb648", "#ff5c6c", "#38bdf8"];
 const WEEK_COLORS = ["#ff5c6c", "#facc15", "#4c8dff"]; /* 오래된 주차부터: 빨강, 노랑, 파랑 */
 const WEEKDAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+
+/* 2026-06/07 Google Sheet 원본 TOTAL 기준 회귀검증값
+   6/19~6/25 = 29,905,437원
+   6/26~7/2  = 29,761,936원
+   (표시값을 하드코딩하지 않으며, 원본 일별 TOTAL 합산 결과가 이 값과 일치해야 함) */
 let HISTORY_DATA = [];
 let DETAIL_CHART = null;
 
@@ -412,66 +417,126 @@ async function loadMonthAuto(year, month, accessToken){
   const sheetConfig = { name: `${year}-${String(month).padStart(2,"0")}`, range: CONFIG.historyRange, year, month };
   const values = await fetchSheetValues(sheetConfig, accessToken);
 
-  // 과거 월 시트에는 "일자 / TOTAL" 형식의 표가 여러 개 존재할 수 있다.
-  // 기존에는 첫 번째 표를 무조건 선택해 실제 매출 원본표가 아닌 다른 표를 읽을 수 있었다.
-  // 채널/제품 헤더와 해당 월의 일별 날짜 행을 함께 점수화하여 실제 매출 원본표를 선택한다.
+  /*
+   * 과거 월 시트 구조:
+   * 한 행에 매출표와 판매수량표가 가로로 함께 있고,
+   * 두 표 모두 "일자 / 자사몰 / 스마트스토어 / M-mall / 쿠팡 / TOTAL" 헤더를 반복한다.
+   *
+   * B:AZ 전체를 그대로 valuesToRowObjects()에 넘기면 동일 헤더명이 객체 키에서 충돌하여
+   * 뒤쪽 판매수량표의 "일자"와 "TOTAL"이 앞쪽 매출표 값을 덮어쓰게 된다.
+   *
+   * 따라서 실제 매출표의 첫 "일자"부터 다음 "일자"가 시작되기 직전까지만 열을 잘라서
+   * 중복 헤더가 없는 단일 표로 만든 뒤 파싱한다.
+   */
   const candidates = [];
+
   values.forEach((row, idx) => {
     const rawCells = (row || []).map(v => String(v).trim());
     const upperCells = rawCells.map(v => v.toUpperCase());
-    const dateIdx = rawCells.findIndex(v => v === "일자");
-    const totalIdx = upperCells.findIndex(v => v === "TOTAL");
-    if (dateIdx < 0 || totalIdx < 0 || totalIdx <= dateIdx) return;
 
-    const channelHeaders = rawCells.slice(dateIdx + 1, totalIdx)
-      .filter(v => v && v !== "요일");
-    const productHeaders = rawCells.slice(totalIdx + 1).filter(Boolean);
+    const dateIndexes = [];
+    rawCells.forEach((v, i) => { if (v === "일자") dateIndexes.push(i); });
 
-    const knownChannels = channelHeaders.filter(h =>
-      [CH.self, CH.naver, CH.mmall, CH.coupang].includes(canonicalChannelKey(h))
-    ).length;
-    const knownProducts = productHeaders.filter(h =>
-      [PR.mk, PR.ph, PR.dwpro, PR.dwplus].includes(canonicalProductKey(h))
-    ).length;
+    dateIndexes.forEach((dateIdx, order) => {
+      let totalIdx = -1;
+      for (let i = dateIdx + 1; i < upperCells.length; i++) {
+        if (upperCells[i] === "TOTAL") { totalIdx = i; break; }
+        // 다음 표의 일자가 먼저 나오면 이 후보는 무효
+        if (rawCells[i] === "일자") break;
+      }
+      if (totalIdx < 0) return;
 
-    // 헤더 아래 약 45행에서 해당 월의 M/D 형식 일자 개수를 확인한다.
-    let monthDateRows = 0;
-    for (let r = idx + 1; r < Math.min(values.length, idx + 46); r++) {
-      const rawDate = String((values[r] || [])[dateIdx] ?? "").trim();
-      const m = rawDate.match(/^(\d{1,2})\s*\/\s*(\d{1,2})/);
-      if (m && parseInt(m[1], 10) === month) monthDateRows++;
-    }
+      const nextDateIdx = dateIndexes.find(i => i > dateIdx);
+      const tableEndIdx = nextDateIdx !== undefined ? nextDateIdx : rawCells.length;
 
-    const score = knownChannels * 100 + knownProducts * 20 + monthDateRows;
-    candidates.push({ idx, score, knownChannels, knownProducts, monthDateRows });
+      const channelHeaders = rawCells.slice(dateIdx + 1, totalIdx)
+        .filter(v => v && v !== "요일");
+      const productHeaders = rawCells.slice(totalIdx + 1, tableEndIdx).filter(Boolean);
+
+      const knownChannels = channelHeaders.filter(h =>
+        [CH.self, CH.naver, CH.mmall, CH.coupang].includes(canonicalChannelKey(h))
+      ).length;
+      const knownProducts = productHeaders.filter(h =>
+        [PR.mk, PR.ph, PR.dwpro, PR.dwplus].includes(canonicalProductKey(h))
+      ).length;
+
+      let monthDateRows = 0;
+      let revenueLikeRows = 0;
+      for (let r = idx + 1; r < Math.min(values.length, idx + 46); r++) {
+        const rawDate = String((values[r] || [])[dateIdx] ?? "").trim();
+        const m = rawDate.match(/^(\d{1,2})\s*\/\s*(\d{1,2})/);
+        if (m && parseInt(m[1], 10) === month) {
+          monthDateRows++;
+          const totalVal = toNumber((values[r] || [])[totalIdx]);
+          // 매출표 TOTAL은 통상 판매수량 TOTAL보다 금액 단위가 훨씬 크므로
+          // 표 선택 시 보조 신호로만 사용한다.
+          if (totalVal >= 100000) revenueLikeRows++;
+        }
+      }
+
+      // 채널 4개 + 제품 헤더 존재 + 금액형 TOTAL 행이 많은 표를 우선한다.
+      const score =
+        knownChannels * 1000 +
+        knownProducts * 100 +
+        revenueLikeRows * 10 +
+        monthDateRows -
+        order;
+
+      candidates.push({
+        idx, dateIdx, totalIdx, tableEndIdx, score,
+        knownChannels, knownProducts, revenueLikeRows, monthDateRows
+      });
+    });
   });
 
-  if (!candidates.length) throw new Error(`${sheetConfig.name} 시트에서 일자/TOTAL 헤더를 찾지 못했습니다.`);
+  if (!candidates.length) {
+    throw new Error(`${sheetConfig.name} 시트에서 일자/TOTAL 헤더를 찾지 못했습니다.`);
+  }
 
-  candidates.sort((a,b) => b.score - a.score || b.monthDateRows - a.monthDateRows || b.idx - a.idx);
-  const headerIdx = candidates[0].idx;
+  candidates.sort((a,b) =>
+    b.score - a.score ||
+    b.revenueLikeRows - a.revenueLikeRows ||
+    b.knownProducts - a.knownProducts ||
+    a.dateIdx - b.dateIdx
+  );
 
-  // 선택한 표 아래에서 다음 "일자/TOTAL" 표가 시작되기 전까지만 읽는다.
+  const selected = candidates[0];
+  const headerIdx = selected.idx;
+
+  // 아래쪽에 또 다른 세로 표가 시작되면 그 직전까지만 행을 사용한다.
   let endIdx = values.length;
   for (let i = headerIdx + 1; i < values.length; i++) {
-    const cells = (values[i] || []).map(v => String(v).trim().toUpperCase());
-    if (cells.includes("일자") && cells.includes("TOTAL")) {
+    const row = values[i] || [];
+    const firstCell = String(row[selected.dateIdx] ?? "").trim();
+    const possibleTotal = String(row[selected.totalIdx] ?? "").trim().toUpperCase();
+    if (firstCell === "일자" && possibleTotal === "TOTAL") {
       endIdx = i;
       break;
     }
   }
 
-  const rows = valuesToRowObjects(values.slice(headerIdx, endIdx));
+  // 핵심 수정: 선택한 매출표의 열 범위만 잘라 중복 헤더를 제거한다.
+  const tableValues = values
+    .slice(headerIdx, endIdx)
+    .map(row => (row || []).slice(selected.dateIdx, selected.tableEndIdx));
+
+  const rows = valuesToRowObjects(tableValues);
   let parsed = parseRows(rows, year, month);
 
-  // 과거 월 자동 로딩에서는 해당 월 날짜만 보존한다.
-  // 월경계 날짜는 각 실제 월의 시트에서 가져오므로 중복/오선택을 원천 차단한다.
+  // 해당 월 날짜만 보존하여 월경계 중복을 방지한다.
   parsed = {
     ...parsed,
     days: parsed.days.filter(d => (d.dateObj.getMonth() + 1) === month)
   };
 
-  return { ...parsed, live: true, sheetConfig, autoHeaderRow: headerIdx + 1 };
+  return {
+    ...parsed,
+    live: true,
+    sheetConfig,
+    autoHeaderRow: headerIdx + 1,
+    autoTableStartColumn: selected.dateIdx + 1,
+    autoTableEndColumn: selected.tableEndIdx
+  };
 }
 
 async function loadHistory(accessToken){
