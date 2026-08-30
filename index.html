@@ -216,7 +216,17 @@
   </div>
 </div>
 
-<script src="https://accounts.google.com/gsi/client"></script>
+<script>
+  window.__googleGsiLoaded = false;
+  window.__googleGsiLoadFailed = false;
+</script>
+<script
+  src="https://accounts.google.com/gsi/client"
+  async
+  defer
+  onload="window.__googleGsiLoaded = true"
+  onerror="window.__googleGsiLoadFailed = true">
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script>
@@ -1066,7 +1076,7 @@ function openDetailModal({title, sub="", labels, values, type="bar", formatter=f
         stepSize:percent ? 5 : undefined,
         callback:(v)=> percent ? v+"%" : undefined
       }
-    }}}}
+    }}}
   });
   modal.classList.add("open"); modal.setAttribute("aria-hidden","false");
   // 네비게이터의 열림/닫힘 애니메이션이 끝난 뒤 한 번 더 위치를 맞춘다.
@@ -1284,9 +1294,29 @@ function initTokenClient(){
   return true;
 }
 
-function waitForGoogleIdentity(){
-  if (initTokenClient()) return;
-  const iv = setInterval(() => { if (initTokenClient()) clearInterval(iv); }, 200);
+function setGoogleIdentityLoadError(){
+  const btn = document.getElementById("loginBtn");
+  btn.disabled = false;
+  btn.textContent = "Google 로그인 다시 시도";
+  showAuthGate();
+  showAuthError("Google 로그인 모듈을 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해주세요. 계속되면 브라우저의 콘텐츠 차단/광고 차단 설정에서 accounts.google.com을 허용해주세요.");
+}
+
+function waitForGoogleIdentity(onReady){
+  if (initTokenClient()) { if (onReady) onReady(); return; }
+  const startedAt = Date.now();
+  const iv = setInterval(() => {
+    if (initTokenClient()) {
+      clearInterval(iv);
+      clearAuthError();
+      if (onReady) onReady();
+      return;
+    }
+    if (window.__googleGsiLoadFailed || Date.now() - startedAt >= 7000) {
+      clearInterval(iv);
+      setGoogleIdentityLoadError();
+    }
+  }, 200);
 }
 
 /* 브라우저에 이미 활성 구글 로그인 세션과 이전 동의 기록이 있으면, 화면에 아무것도 띄우지 않고
@@ -1324,19 +1354,32 @@ function attemptSilentLogin(){
 }
 
 function waitForGoogleIdentityThenTrySilentLogin(){
-  if (initTokenClient()) { attemptSilentLogin(); return; }
-  const iv = setInterval(() => {
-    if (initTokenClient()) { clearInterval(iv); attemptSilentLogin(); }
-  }, 200);
+  waitForGoogleIdentity(attemptSilentLogin);
 }
 
 function handleLoginClick(){
   clearAuthError();
-  if (!TOKEN_CLIENT) { showAuthError("Google 로그인 준비 중입니다. 잠시 후 다시 시도해주세요."); return; }
   const btn = document.getElementById("loginBtn");
+
+  if (!TOKEN_CLIENT) {
+    btn.disabled = true;
+    btn.textContent = "로그인 모듈 확인 중...";
+    waitForGoogleIdentity(() => {
+      btn.disabled = false;
+      btn.textContent = "Google 계정으로 로그인";
+    });
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = "로그인 중...";
-  TOKEN_CLIENT.requestAccessToken({ prompt: "" });
+  try {
+    TOKEN_CLIENT.requestAccessToken({ prompt: "select_account" });
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = "Google 계정으로 로그인";
+    showAuthError("Google 로그인 창을 열지 못했습니다. 팝업 차단 설정을 확인한 뒤 다시 시도해주세요.");
+  }
 }
 
 function handleLogout(){
