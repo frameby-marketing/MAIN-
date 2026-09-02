@@ -211,7 +211,7 @@
 
   <footer>
     이 대시보드는 Google 로그인 후 초대된 계정에만 실제 데이터가 표시됩니다. 시트 자체는 비공개로 두셔도 됩니다.
-    <br>매달 새 시트(예: 2026-08)가 생기면 이 파일 상단 <code>CONFIG.currentSheet</code> / <code>CONFIG.prevSheet</code>의 시트명·범위만 갱신하면 됩니다.
+    <br><code>YYYY-MM</code> 형식의 월 시트가 추가되면 가장 최신 월과 직전 월을 자동으로 인식해 반영합니다.
   </footer>
   </div>
 </div>
@@ -235,9 +235,9 @@ const CONFIG = {
   spreadsheetId: "1ci6ItqdLhOzg7kdqGLhvfCR3AgJJ2yPnwp2-qV0GiYg",
   spreadsheetUrl: "https://docs.google.com/spreadsheets/d/1ci6ItqdLhOzg7kdqGLhvfCR3AgJJ2yPnwp2-qV0GiYg/edit?gid=1712590001#gid=1712590001",
   productMoreUrl: "https://frameby-marketing.github.io/Product/",
-  /* 매달 새 시트가 생기면 여기만 갱신하세요. currentSheet가 이번달, prevSheet가 지난달입니다. */
-  currentSheet: { name: "2026-08", range: "B228:L259", year: 2026, month: 8 },
-  prevSheet:    { name: "2026-07", range: "B224:L265", year: 2026, month: 7 },
+  /* 월 시트는 YYYY-MM 형식의 시트명을 자동 탐색합니다. 아래 current/prev는 탐색 실패 시에만 쓰는 fallback입니다. */
+  currentSheet: { name: "2026-08", range: "B:AZ", year: 2026, month: 8 },
+  prevSheet:    { name: "2026-07", range: "B:AZ", year: 2026, month: 7 },
   historyStartMonth: 1,
   historyRange: "B:AZ",
   /* 구글 클라우드 콘솔에서 발급받은 OAuth 클라이언트 ID로 교체하세요. (설정 가이드 별도 전달) */
@@ -255,6 +255,7 @@ const WEEKDAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
    6/26~7/2  = 29,761,936원
    (표시값을 하드코딩하지 않으며, 원본 일별 TOTAL 합산 결과가 이 값과 일치해야 함) */
 let HISTORY_DATA = [];
+let DISCOVERED_MONTHLY_SHEETS = [];
 let DETAIL_CHART = null;
 
 /* ================= HELPERS ================= */
@@ -423,6 +424,35 @@ async function loadMonth(sheetConfig, accessToken){
   return { ...parsed, live: true, sheetConfig };
 }
 
+/* 스프레드시트의 시트 목록에서 YYYY-MM 형식만 골라 최신 월/직전 월을 자동 결정한다. */
+async function discoverMonthlySheetConfigs(accessToken){
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}?fields=sheets.properties.title`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) {
+    const err = new Error(`월 시트 목록을 불러오지 못했습니다 (HTTP ${res.status})`);
+    err.status = res.status;
+    throw err;
+  }
+  const json = await res.json();
+  const monthly = (json.sheets || [])
+    .map(s => String(s?.properties?.title || '').trim())
+    .map(title => {
+      const m = title.match(/^(\d{4})-(\d{2})$/);
+      if (!m) return null;
+      const year = Number(m[1]), month = Number(m[2]);
+      if (month < 1 || month > 12) return null;
+      return { name: title, range: CONFIG.historyRange, year, month };
+    })
+    .filter(Boolean)
+    .sort((a,b) => (a.year * 12 + a.month) - (b.year * 12 + b.month));
+
+  if (!monthly.length) throw new Error('YYYY-MM 형식의 월 시트를 찾지 못했습니다.');
+  const current = monthly[monthly.length - 1];
+  const prev = monthly.length >= 2 ? monthly[monthly.length - 2] : null;
+  if (!prev) throw new Error('비교를 위한 직전 월 시트가 없습니다.');
+  return { current, prev, monthly };
+}
+
 async function loadMonthAuto(year, month, accessToken){
   const sheetConfig = { name: `${year}-${String(month).padStart(2,"0")}`, range: CONFIG.historyRange, year, month };
   const values = await fetchSheetValues(sheetConfig, accessToken);
@@ -551,14 +581,23 @@ async function loadMonthAuto(year, month, accessToken){
 
 async function loadHistory(accessToken){
   const y = CONFIG.currentSheet.year, currentMonth = CONFIG.currentSheet.month;
-  const months = [];
-  for (let m = CONFIG.historyStartMonth; m <= currentMonth; m++) months.push(m);
-  const results = await Promise.all(months.map(async m => {
-    if (m === currentMonth && CURRENT_DATA) return CURRENT_DATA;
-    if (m === CONFIG.prevSheet.month && PREV_DATA) return PREV_DATA;
-    return loadMonthAuto(y, m, accessToken);
+  const available = (DISCOVERED_MONTHLY_SHEETS || [])
+    .filter(s => s.year === y && s.month >= CONFIG.historyStartMonth && s.month <= currentMonth);
+  const targets = available.length
+    ? available
+    : Array.from({length: currentMonth - CONFIG.historyStartMonth + 1}, (_,i) => ({
+        name: `${y}-${String(CONFIG.historyStartMonth + i).padStart(2,"0")}`,
+        range: CONFIG.historyRange, year: y, month: CONFIG.historyStartMonth + i
+      }));
+
+  const results = await Promise.all(targets.map(async cfg => {
+    if (cfg.name === CONFIG.currentSheet.name && CURRENT_DATA) return CURRENT_DATA;
+    if (cfg.name === CONFIG.prevSheet.name && PREV_DATA) return PREV_DATA;
+    return loadMonthAuto(cfg.year, cfg.month, accessToken);
   }));
-  return results.sort((a,b) => a.sheetConfig.month - b.sheetConfig.month);
+  return results.sort((a,b) =>
+    (a.sheetConfig.year * 12 + a.sheetConfig.month) - (b.sheetConfig.year * 12 + b.sheetConfig.month)
+  );
 }
 
 function sumBy(days, fn){ return days.reduce((s, d) => s + fn(d), 0); }
@@ -1200,7 +1239,7 @@ function renderStatus(current, prev){
   badge.classList.add("live");
   const y = current.days[current.days.length - 1];
   document.getElementById("periodLabel").textContent = y
-    ? `기준일: ${CONFIG.currentSheet.year}-${String(CONFIG.currentSheet.month).padStart(2,"0")}-${String(y.dateObj.getDate()).padStart(2,"0")} (이번달 ${current.days.length}일째 데이터)`
+    ? `기준일: ${current.sheetConfig.year}-${String(current.sheetConfig.month).padStart(2,"0")}-${String(y.dateObj.getDate()).padStart(2,"0")} (이번달 ${current.days.length}일째 데이터)`
     : "데이터 없음";
 }
 
@@ -1403,9 +1442,16 @@ function explainLoadError(e){
 
 /* ================= DATA LOAD + RENDER ================= */
 async function loadAndRenderAll(){
+  // 1) 실제 스프레드시트의 YYYY-MM 시트 목록을 읽어 최신 월과 직전 월을 자동 결정
+  const discovered = await discoverMonthlySheetConfigs(ACCESS_TOKEN);
+  DISCOVERED_MONTHLY_SHEETS = discovered.monthly;
+  CONFIG.currentSheet = discovered.current;
+  CONFIG.prevSheet = discovered.prev;
+
+  // 2) 고정 행 범위 대신 B:AZ에서 실제 매출표 위치를 자동 탐색하여 로드
   const [current, prev] = await Promise.all([
-    loadMonth(CONFIG.currentSheet, ACCESS_TOKEN),
-    loadMonth(CONFIG.prevSheet, ACCESS_TOKEN)
+    loadMonthAuto(CONFIG.currentSheet.year, CONFIG.currentSheet.month, ACCESS_TOKEN),
+    loadMonthAuto(CONFIG.prevSheet.year, CONFIG.prevSheet.month, ACCESS_TOKEN)
   ]);
   CURRENT_DATA = current; PREV_DATA = prev;
   HISTORY_DATA = await loadHistory(ACCESS_TOKEN);
